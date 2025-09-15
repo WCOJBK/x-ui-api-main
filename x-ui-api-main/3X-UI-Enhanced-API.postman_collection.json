@@ -1,0 +1,429 @@
+{
+  "info": {
+    "name": "3X-UI Enhanced API Collection",
+    "description": "完整的3X-UI API测试集合，包含VLESS-REALITY节点管理、流量控制、订阅管理等功能",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:2053",
+      "description": "3X-UI面板地址"
+    },
+    {
+      "key": "username",
+      "value": "admin",
+      "description": "管理员用户名"
+    },
+    {
+      "key": "password",
+      "value": "admin",
+      "description": "管理员密码"
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. 认证",
+      "item": [
+        {
+          "name": "登录获取Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. 入站管理",
+      "item": [
+        {
+          "name": "获取入站列表",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/list",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "list"]
+            }
+          }
+        },
+        {
+          "name": "添加VLESS-Reality入站",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enable\": true,\n  \"port\": 443,\n  \"protocol\": \"vless\",\n  \"settings\": \"{\\\"clients\\\":[],\\\"decryption\\\":\\\"none\\\",\\\"fallbacks\\\":[]}\",\n  \"streamSettings\": \"{\\\"network\\\":\\\"tcp\\\",\\\"security\\\":\\\"reality\\\",\\\"realitySettings\\\":{\\\"show\\\":false,\\\"dest\\\":\\\"www.microsoft.com:443\\\",\\\"xver\\\":0,\\\"serverNames\\\":[\\\"www.microsoft.com\\\"],\\\"privateKey\\\":\\\"YOUR-PRIVATE-KEY\\\",\\\"publicKey\\\":\\\"YOUR-PUBLIC-KEY\\\",\\\"shortIds\\\":[\\\"\\\"]}}}\",\n  \"tag\": \"vless-reality-443\",\n  \"sniffing\": \"{\\\"enabled\\\":true,\\\"destOverride\\\":[\\\"http\\\",\\\"tls\\\"]}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "add"]
+            }
+          }
+        },
+        {
+          "name": "获取指定入站",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/get/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "get", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 客户端管理（高级功能）",
+      "item": [
+        {
+          "name": "添加高级客户端（带流量限制）",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inboundId\": 1,\n  \"email\": \"user@example.com\",\n  \"uuid\": \"12345678-1234-1234-1234-123456789012\",\n  \"flow\": \"xtls-rprx-vision\",\n  \"limitIp\": 2,\n  \"totalGB\": 107374182400,\n  \"expiryTime\": 1735689600000,\n  \"enable\": true,\n  \"tgId\": 123456789,\n  \"subId\": \"custom-sub-id\",\n  \"comment\": \"API创建的测试用户\",\n  \"reset\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/addClientAdvanced",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "addClientAdvanced"]
+            }
+          }
+        },
+        {
+          "name": "获取客户端详情",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/client/details/user@example.com",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "client", "details", "user@example.com"]
+            }
+          }
+        },
+        {
+          "name": "更新客户端高级设置",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"totalGB\": 214748364800,\n  \"expiryTime\": 1767225600000,\n  \"enable\": true,\n  \"comment\": \"更新后的用户备注\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/client/update/user@example.com",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "client", "update", "user@example.com"]
+            }
+          }
+        },
+        {
+          "name": "获取客户端流量统计",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/getClientTraffics/user@example.com",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "getClientTraffics", "user@example.com"]
+            }
+          }
+        },
+        {
+          "name": "重置客户端流量",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/1/resetClientTraffic/user@example.com",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "1", "resetClientTraffic", "user@example.com"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 出站规则管理",
+      "item": [
+        {
+          "name": "获取出站列表",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/outbounds/list",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "outbounds", "list"]
+            }
+          }
+        },
+        {
+          "name": "添加直连出站",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tag\": \"direct\",\n  \"protocol\": \"freedom\",\n  \"settings\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/outbounds/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "outbounds", "add"]
+            }
+          }
+        },
+        {
+          "name": "添加拦截出站",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tag\": \"block\",\n  \"protocol\": \"blackhole\",\n  \"settings\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/outbounds/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "outbounds", "add"]
+            }
+          }
+        },
+        {
+          "name": "删除出站",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/outbounds/del/block",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "outbounds", "del", "block"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 路由规则管理",
+      "item": [
+        {
+          "name": "获取路由配置",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/routing/get",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "routing", "get"]
+            }
+          }
+        },
+        {
+          "name": "添加国内域名直连规则",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"field\",\n  \"outboundTag\": \"direct\",\n  \"domain\": [\n    \"geosite:cn\",\n    \"geosite:geolocation-cn\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/routing/rule/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "routing", "rule", "add"]
+            }
+          }
+        },
+        {
+          "name": "添加国内IP直连规则",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"field\",\n  \"outboundTag\": \"direct\",\n  \"ip\": [\n    \"geoip:cn\",\n    \"geoip:private\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/routing/rule/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "routing", "rule", "add"]
+            }
+          }
+        },
+        {
+          "name": "添加广告拦截规则",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"field\",\n  \"outboundTag\": \"block\",\n  \"domain\": [\n    \"geosite:category-ads-all\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/routing/rule/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "routing", "rule", "add"]
+            }
+          }
+        },
+        {
+          "name": "删除路由规则",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "0"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/routing/rule/del",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "routing", "rule", "del"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. 订阅管理",
+      "item": [
+        {
+          "name": "获取订阅设置",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/subscription/settings/get",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "subscription", "settings", "get"]
+            }
+          }
+        },
+        {
+          "name": "获取订阅链接",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/subscription/urls/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "subscription", "urls", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. 系统管理",
+      "item": [
+        {
+          "name": "创建备份",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/createbackup",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "createbackup"]
+            }
+          }
+        },
+        {
+          "name": "获取在线客户端",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/onlines",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "onlines"]
+            }
+          }
+        },
+        {
+          "name": "重置所有流量",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/panel/api/inbounds/resetAllTraffics",
+              "host": ["{{baseUrl}}"],
+              "path": ["panel", "api", "inbounds", "resetAllTraffics"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
