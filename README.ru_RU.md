@@ -32,7 +32,7 @@
 ## Установка и обновление
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/install.sh)
 ```
 
 ## Установить старую версию (мы не рекомендуем)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/instal
 Чтобы установить желаемую версию, используйте следующую команду установки. Например, ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/$VERSION/install.sh") $VERSION
 ```
 
 ## SSL Сертификат
@@ -117,7 +117,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/x-ui-api-main/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. После загрузки архива выполните следующие команды для установки или обновления x-ui:
@@ -165,8 +165,8 @@ systemctl restart x-ui
 2. **Склонируйте репозиторий проекта:**
 
    ```sh
-   git clone https://github.com/WCOJBK/3x-ui-api.git
-   cd 3x-ui-api
+   git clone https://github.com/WCOJBK/x-ui-api-main.git
+   cd x-ui-api-main
    ```
 
 3. **Запустите сервис:**

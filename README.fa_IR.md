@@ -32,7 +32,7 @@
 ## نصب و ارتقا
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/install.sh)
 ```
 
 ## نصب نسخه‌های قدیمی (توصیه نمی‌شود)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/instal
 برای نصب نسخه خاصی از دستور زیر استفاده کنید. مثال برای نسخه `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/$VERSION/install.sh") $VERSION
 ```
 
 ## گواهی SSL
@@ -116,7 +116,7 @@ case "${ARCH}" in
   *) XUI_ARCH="amd64" ;;
 esac
 
-wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/x-ui-api-main/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. نصب یا ارتقا:
@@ -164,8 +164,8 @@ systemctl restart x-ui
 2. **کلون پروژه:**
 
    ```sh
-   git clone https://github.com/WCOJBK/3x-ui-api.git
-   cd 3x-ui-api
+   git clone https://github.com/WCOJBK/x-ui-api-main.git
+   cd x-ui-api-main
    ```
 
 3. **راه‌اندازی سرویس:**

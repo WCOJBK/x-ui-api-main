@@ -301,4 +301,5 @@
 
 **🏆 3X-UI Enhanced API 为用户提供了完整、强大、易用的API接口，大大提升了自动化管理和集成开发的效率。**
 
-**© 2024 3X-UI Enhanced API Project | 维护者: WCOJBK**
+**© 2024 3X-UI Enhanced API Project | 维护者: WCOJBK**  
+**仓库地址**: https://github.com/WCOJBK/x-ui-api-main

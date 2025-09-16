@@ -32,7 +32,7 @@
 ## Instalar y Actualizar
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/install.sh)
 ```
 
 ## Instalar versión antigua (no recomendamos)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/instal
 Para instalar la versión deseada, utiliza el siguiente comando de instalación. Por ejemplo, ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/$VERSION/install.sh") $VERSION
 ```
 
 ## Certificado SSL
@@ -116,7 +116,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/x-ui-api-main/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. Una vez que se haya descargado el paquete comprimido, ejecuta los siguientes comandos para instalar o actualizar x-ui:
@@ -163,8 +163,8 @@ systemctl restart x-ui
 2. Clona el Repositorio del Proyecto:
 
    ```sh
-   git clone https://github.com/WCOJBK/3x-ui-api.git
-   cd 3x-ui-api
+   git clone https://github.com/WCOJBK/x-ui-api-main.git
+   cd x-ui-api-main
    ```
 
 3. Inicia el Servicio

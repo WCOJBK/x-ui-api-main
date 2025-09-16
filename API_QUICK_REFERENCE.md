@@ -171,4 +171,5 @@ curl -b cookies.txt "http://server:2053/panel/api/inbounds/client/details/user@e
 
 **⭐ 标记为新增或增强功能**
 
-**© 2024 3X-UI Enhanced API**
+**© 2024 3X-UI Enhanced API**  
+**仓库**: https://github.com/WCOJBK/x-ui-api-main

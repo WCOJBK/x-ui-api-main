@@ -2,6 +2,7 @@
 
 > **版本**: Enhanced API v1.0  
 > **维护者**: WCOJBK  
+> **仓库地址**: https://github.com/WCOJBK/x-ui-api-main  
 > **基础路径**: `http://your-server:port`
 
 ## 📋 目录

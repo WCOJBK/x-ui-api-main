@@ -32,7 +32,7 @@
 ## 安装 & 升级
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/install.sh)
 ```
 
 ## 安装旧版本 (我们不建议)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/instal
 要安装您想要的版本，请使用以下安装命令。例如，ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/$VERSION/install.sh") $VERSION
 ```
 
 ### SSL证书
@@ -116,7 +116,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/x-ui-api-main/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. 下载压缩包后，执行以下命令安装或升级 x-ui：
@@ -163,8 +163,8 @@ systemctl restart x-ui
 2. 克隆仓库：
 
    ```sh
-   git clone https://github.com/WCOJBK/3x-ui-api.git
-   cd 3x-ui-api
+   git clone https://github.com/WCOJBK/x-ui-api-main.git
+   cd x-ui-api-main
    ```
 
 3. 运行服务：
