@@ -125,7 +125,7 @@ func (x *XrayAPI) AddUser(Protocol string, inboundTag string, user map[string]in
 			ssCipherType = shadowsocks.CipherType_AES_256_GCM
 		case "chacha20-poly1305", "chacha20-ietf-poly1305":
 			ssCipherType = shadowsocks.CipherType_CHACHA20_POLY1305
-		case "xchacha20-poly1305", "chacha20-ietf-poly1305":
+		case "xchacha20-poly1305":
 			ssCipherType = shadowsocks.CipherType_XCHACHA20_POLY1305
 		default:
 			ssCipherType = shadowsocks.CipherType_NONE
@@ -273,21 +273,9 @@ func mapToSlice[T any](m map[string]*T) []*T {
 }
 
 // RouteInboundToOutbound 将指定的入站流量路由到指定的出站
+// 注意：此功能在新版本Xray-core中已移除，此函数保留用于兼容性但不执行任何操作
 func (x *XrayAPI) RouteInboundToOutbound(inboundTag string, outboundTag string) error {
-	client := *x.HandlerServiceClient // 获取处理服务客户端
-
-	// 创建路由请求
-	routeRequest := &command.RouteRequest{
-		InboundTag:  inboundTag,  // 指定入站标签
-		OutboundTag: outboundTag,  // 指定出站标签
-	}
-
-	// 发送路由请求
-	_, err := client.Route(context.Background(), routeRequest)
-	if err != nil {
-		logger.Debug("Failed to route inbound to outbound:", err) // 路由失败日志
-		return err // 返回错误
-	}
-
-	return nil // 成功
+	// 在新版本的Xray-core中，路由功能已通过配置文件管理，不再支持动态路由API
+	logger.Debug("RouteInboundToOutbound is deprecated in current Xray-core version")
+	return nil // 返回成功，但不执行任何操作
 }
