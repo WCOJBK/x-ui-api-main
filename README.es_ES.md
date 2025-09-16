@@ -32,7 +32,7 @@
 ## Instalar y Actualizar
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
 ```
 
 ## Instalar versión antigua (no recomendamos)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.
 Para instalar la versión deseada, utiliza el siguiente comando de instalación. Por ejemplo, ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
 ```
 
 ## Certificado SSL
@@ -116,7 +116,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. Una vez que se haya descargado el paquete comprimido, ejecuta los siguientes comandos para instalar o actualizar x-ui:
@@ -163,8 +163,8 @@ systemctl restart x-ui
 2. Clona el Repositorio del Proyecto:
 
    ```sh
-   git clone https://github.com/MHSanaei/3x-ui.git
-   cd 3x-ui
+   git clone https://github.com/WCOJBK/3x-ui-api.git
+   cd 3x-ui-api
    ```
 
 3. Inicia el Servicio
@@ -509,12 +509,69 @@ Ingresa el ID de chat de usuario en el campo de entrada número 4. Las cuentas d
 | `POST` | `"/resetAllClientTraffics/:id"`    | Restablecer tráfico de todos los clientes en una Entrada  |
 | `POST` | `"/delDepletedClients/:id"`        | Eliminar clientes agotados de la entrada (-1: todos)      |
 | `POST` | `"/onlines"`                       | Obtener usuarios en línea (lista de correos electrónicos) |
+| `POST` | `"/addClientAdvanced"`             | Agregar cliente con configuraciones avanzadas (límite de tráfico, expiración, suscripción personalizada) |
+| `GET`  | `"/client/details/:email"`         | Obtener detalles del cliente y URLs de suscripción |
+| `POST` | `"/client/update/:email"`          | Actualizar configuraciones avanzadas del cliente |
+
+**Gestión de Salida Mejorada:**
+| Método | Ruta                               | Acción                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/outbounds/list"`                | Obtener todas las salidas                   |
+| `POST` | `"/outbounds/add"`                 | Agregar regla de salida                     |
+| `POST` | `"/outbounds/del/:tag"`            | Eliminar salida por etiqueta                |
+| `POST` | `"/outbounds/update/:tag"`         | Actualizar salida por etiqueta              |
+| `POST` | `"/outbounds/resetTraffic/:tag"`   | Resetear tráfico de salida                  |
+| `POST` | `"/outbounds/resetAllTraffics"`    | Resetear todo el tráfico de salidas         |
+
+**Gestión de Enrutamiento Mejorada:**
+| Método | Ruta                               | Acción                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/routing/get"`                   | Obtener configuración de enrutamiento       |
+| `POST` | `"/routing/update"`                | Actualizar configuración de enrutamiento    |
+| `POST` | `"/routing/rule/add"`              | Agregar regla de enrutamiento               |
+| `POST` | `"/routing/rule/del"`              | Eliminar regla de enrutamiento              |
+| `POST` | `"/routing/rule/update"`           | Actualizar regla de enrutamiento            |
+
+**Gestión de Suscripción Mejorada:**
+| Método | Ruta                               | Acción                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/subscription/settings/get"`     | Obtener configuraciones de suscripción      |
+| `POST` | `"/subscription/settings/update"`  | Actualizar configuraciones de suscripción   |
+| `POST` | `"/subscription/enable"`           | Habilitar servicio de suscripción           |
+| `POST` | `"/subscription/disable"`          | Deshabilitar servicio de suscripción        |
+| `GET`  | `"/subscription/urls/:id"`         | Obtener URLs de suscripción para entrada    |
 
 \*- El campo `clientId` debe llenarse por:
 
 - `client.id` para VMESS y VLESS
 - `client.password` para TROJAN
 - `client.email` para Shadowsocks
+
+### Funciones Avanzadas de Cliente
+
+La API mejorada ahora soporta funciones avanzadas de gestión de clientes:
+
+- **Límites de Tráfico:** Establecer límites de tráfico personalizados por cliente (totalGB)
+- **Tiempo de Expiración:** Establecer expiración automática del cliente (expiryTime)
+- **Límites de IP:** Controlar conexiones IP concurrentes máximas (limitIp)
+- **Suscripción Personalizada:** Generar URLs de suscripción personalizadas (subId)
+- **Integración de Telegram:** Vincular clientes con notificaciones de Telegram (tgId)
+- **Comentarios:** Agregar notas y descripciones para clientes (comment)
+
+**Ejemplo - Agregar Cliente con Configuraciones Avanzadas:**
+```json
+{
+  "inboundId": 1,
+  "email": "user@example.com",
+  "flow": "xtls-rprx-vision",
+  "limitIp": 2,
+  "totalGB": 107374182400,
+  "expiryTime": 1735689600000,
+  "enable": true,
+  "subId": "custom-subscription-id",
+  "comment": "Usuario VIP"
+}
+```
 
 - [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5%26entityType%3Dcollection%26workspaceId%3Dd64f609f-485a-4951-9b8f-876b3f917124)
 </details>
@@ -575,7 +632,9 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## Un agradecimiento especial a
 
-- [alireza0](https://github.com/alireza0/)
+- [MHSanaei](https://github.com/MHSanaei/) - Creador original del proyecto 3x-ui
+- [alireza0](https://github.com/alireza0/) - Colaborador del proyecto original
+- Mantenedor actual: [WCOJBK](https://github.com/WCOJBK/) - Funcionalidad API mejorada
 
 ## Reconocimientos
 

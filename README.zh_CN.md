@@ -32,7 +32,7 @@
 ## 安装 & 升级
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
 ```
 
 ## 安装旧版本 (我们不建议)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.
 要安装您想要的版本，请使用以下安装命令。例如，ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
 ```
 
 ### SSL证书
@@ -116,7 +116,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. 下载压缩包后，执行以下命令安装或升级 x-ui：
@@ -163,8 +163,8 @@ systemctl restart x-ui
 2. 克隆仓库：
 
    ```sh
-   git clone https://github.com/MHSanaei/3x-ui.git
-   cd 3x-ui
+   git clone https://github.com/WCOJBK/3x-ui-api.git
+   cd 3x-ui-api
    ```
 
 3. 运行服务：
@@ -509,12 +509,69 @@ Web 面板通过 Telegram Bot 支持每日流量、面板登录、数据库备�
 | `POST` | `"/resetAllClientTraffics/:id"`    | 重置入站中所有客户端的流量        |
 | `POST` | `"/delDepletedClients/:id"`        | 删除入站耗尽的客户端 （-1： all） |
 | `POST` | `"/onlines"`                       | 获取在线用户 （ 电子邮件列表 ）   |
+| `POST` | `"/addClientAdvanced"`             | 添加高级客户端（流量限制、到期时间、自定义订阅） |
+| `GET`  | `"/client/details/:email"`         | 获取客户端详情和订阅链接        |
+| `POST` | `"/client/update/:email"`          | 更新客户端高级设置              |
+
+**增强的出站管理:**
+| 方法    | 路径                               | 操作                           |
+| :----: | ---------------------------------- | ------------------------------ |
+| `POST` | `"/outbounds/list"`                | 获取所有出站                    |
+| `POST` | `"/outbounds/add"`                 | 添加出站规则                    |
+| `POST` | `"/outbounds/del/:tag"`            | 通过标签删除出站                |
+| `POST` | `"/outbounds/update/:tag"`         | 通过标签更新出站                |
+| `POST` | `"/outbounds/resetTraffic/:tag"`   | 重置出站流量                    |
+| `POST` | `"/outbounds/resetAllTraffics"`    | 重置所有出站流量                |
+
+**增强的路由管理:**
+| 方法    | 路径                               | 操作                           |
+| :----: | ---------------------------------- | ------------------------------ |
+| `POST` | `"/routing/get"`                   | 获取路由配置                    |
+| `POST` | `"/routing/update"`                | 更新路由配置                    |
+| `POST` | `"/routing/rule/add"`              | 添加路由规则                    |
+| `POST` | `"/routing/rule/del"`              | 删除路由规则                    |
+| `POST` | `"/routing/rule/update"`           | 更新路由规则                    |
+
+**增强的订阅管理:**
+| 方法    | 路径                               | 操作                           |
+| :----: | ---------------------------------- | ------------------------------ |
+| `POST` | `"/subscription/settings/get"`     | 获取订阅设置                    |
+| `POST` | `"/subscription/settings/update"`  | 更新订阅设置                    |
+| `POST` | `"/subscription/enable"`           | 启用订阅服务                    |
+| `POST` | `"/subscription/disable"`          | 禁用订阅服务                    |
+| `GET`  | `"/subscription/urls/:id"`         | 获取入站的订阅链接              |
 
 \*- `clientId` 项应该使用下列数据
 
 - `client.id`  VMESS and VLESS
 - `client.password`  TROJAN
 - `client.email`  Shadowsocks
+
+### 高级客户端功能
+
+增强的API现在支持高级客户端管理功能：
+
+- **流量限制:** 为每个客户端设置自定义流量限制 (totalGB)
+- **到期时间:** 设置自动客户端过期 (expiryTime)
+- **IP限制:** 控制最大并发IP连接数 (limitIp)
+- **自定义订阅:** 生成个性化订阅链接 (subId)
+- **Telegram集成:** 将客户端与Telegram通知关联 (tgId)
+- **备注:** 为客户端添加备注和描述 (comment)
+
+**示例 - 添加高级设置客户端:**
+```json
+{
+  "inboundId": 1,
+  "email": "user@example.com",
+  "flow": "xtls-rprx-vision",
+  "limitIp": 2,
+  "totalGB": 107374182400,
+  "expiryTime": 1735689600000,
+  "enable": true,
+  "subId": "custom-subscription-id",
+  "comment": "VIP用户"
+}
+```
 
 - [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5%26entityType%3Dcollection%26workspaceId%3Dd64f609f-485a-4951-9b8f-876b3f917124)
 </details>
@@ -575,7 +632,9 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## 特别感谢
 
-- [alireza0](https://github.com/alireza0/)
+- [MHSanaei](https://github.com/MHSanaei/) - 3x-ui项目原创作者
+- [alireza0](https://github.com/alireza0/) - 原项目贡献者
+- 当前维护者: [WCOJBK](https://github.com/WCOJBK/) - 增强API功能
 
 ## 致谢
 

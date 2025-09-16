@@ -32,7 +32,7 @@
 ## نصب و ارتقا
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
 ```
 
 ## نصب نسخه‌های قدیمی (توصیه نمی‌شود)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.
 برای نصب نسخه خاصی از دستور زیر استفاده کنید. مثال برای نسخه `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
 ```
 
 ## گواهی SSL
@@ -116,7 +116,7 @@ case "${ARCH}" in
   *) XUI_ARCH="amd64" ;;
 esac
 
-wget https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. نصب یا ارتقا:
@@ -164,8 +164,8 @@ systemctl restart x-ui
 2. **کلون پروژه:**
 
    ```sh
-   git clone https://github.com/MHSanaei/3x-ui.git
-   cd 3x-ui
+   git clone https://github.com/WCOJBK/3x-ui-api.git
+   cd 3x-ui-api
    ```
 
 3. **راه‌اندازی سرویس:**
@@ -477,6 +477,63 @@ WARP به صورت داخلی پشتیبانی می‌شود. تنها نیاز 
 | `GET`  | `"/get/:id"`                       | دریافت inbound بر اساس id                  |
 | `POST` | `"/add"`                           | افزودن inbound                              |
 | `POST` | `"/del/:id"`                       | حذف inbound                                 |
+| `POST` | `"/addClientAdvanced"`             | افزودن کلاینت با تنظیمات پیشرفته (محدودیت ترافیک، انقضا، اشتراک سفارشی) |
+| `GET`  | `"/client/details/:email"`         | دریافت جزئیات کلاینت و لینک‌های اشتراک       |
+| `POST` | `"/client/update/:email"`          | به‌روزرسانی تنظیمات پیشرفته کلاینت           |
+
+**مدیریت outbound پیشرفته:**
+| Method | مسیر                               | عملکرد                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/outbounds/list"`                | دریافت تمام outboundها                      |
+| `POST` | `"/outbounds/add"`                 | افزودن قانون outbound                        |
+| `POST` | `"/outbounds/del/:tag"`            | حذف outbound بر اساس تگ                     |
+| `POST` | `"/outbounds/update/:tag"`         | به‌روزرسانی outbound بر اساس تگ             |
+| `POST` | `"/outbounds/resetTraffic/:tag"`   | ریست کردن ترافیک outbound                   |
+| `POST` | `"/outbounds/resetAllTraffics"`    | ریست کردن تمام ترافیک outboundها             |
+
+**مدیریت routing پیشرفته:**
+| Method | مسیر                               | عملکرد                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/routing/get"`                   | دریافت تنظیمات routing                      |
+| `POST` | `"/routing/update"`                | به‌روزرسانی تنظیمات routing                 |
+| `POST` | `"/routing/rule/add"`              | افزودن قانون routing                        |
+| `POST` | `"/routing/rule/del"`              | حذف قانون routing                           |
+| `POST` | `"/routing/rule/update"`           | به‌روزرسانی قانون routing                   |
+
+**مدیریت subscription پیشرفته:**
+| Method | مسیر                               | عملکرد                                      |
+| :----: | ---------------------------------- | ------------------------------------------- |
+| `POST` | `"/subscription/settings/get"`     | دریافت تنظیمات subscription                 |
+| `POST` | `"/subscription/settings/update"`  | به‌روزرسانی تنظیمات subscription            |
+| `POST` | `"/subscription/enable"`           | فعال‌سازی سرویس subscription                |
+| `POST` | `"/subscription/disable"`          | غیرفعال‌سازی سرویس subscription             |
+| `GET`  | `"/subscription/urls/:id"`         | دریافت لینک‌های subscription برای inbound  |
+
+### ویژگی‌های پیشرفته کلاینت
+
+API پیشرفته اکنون از ویژگی‌های پیشرفته مدیریت کلاینت پشتیبانی می‌کند:
+
+- **محدودیت ترافیک:** تنظیم محدودیت ترافیک سفارشی برای هر کلاینت (totalGB)
+- **زمان انقضا:** تنظیم انقضای خودکار کلاینت (expiryTime)
+- **محدودیت IP:** کنترل حداکثر اتصالات همزمان IP (limitIp)
+- **اشتراک سفارشی:** تولید لینک‌های اشتراک شخصی‌سازی شده (subId)
+- **ادغام تلگرام:** پیوند کلاینت‌ها با اعلان‌های تلگرام (tgId)
+- **یادداشت‌ها:** افزودن یادداشت و توضیحات برای کلاینت‌ها (comment)
+
+**مثال - افزودن کلاینت با تنظیمات پیشرفته:**
+```json
+{
+  "inboundId": 1,
+  "email": "user@example.com",
+  "flow": "xtls-rprx-vision",
+  "limitIp": 2,
+  "totalGB": 107374182400,
+  "expiryTime": 1735689600000,
+  "enable": true,
+  "subId": "custom-subscription-id",
+  "comment": "کاربر VIP"
+}
+```
 
 - [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5%26entityType%3Dcollection%26workspaceId%3Dd64f609f-485a-4951-9b8f-876b3f917124)
 </details>
@@ -515,7 +572,9 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## قدردانی ویژه از
 
-- [alireza0](https://github.com/alireza0/)
+- [MHSanaei](https://github.com/MHSanaei/) - سازنده اصلی پروژه 3x-ui
+- [alireza0](https://github.com/alireza0/) - مشارکت‌کننده در پروژه اصلی
+- نگهدارنده فعلی: [WCOJBK](https://github.com/WCOJBK/) - قابلیت‌های پیشرفته API
 
 ## تشکر و قدردانی
 

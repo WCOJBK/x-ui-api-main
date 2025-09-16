@@ -32,7 +32,7 @@
 ## Установка и обновление
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/3x-ui-api/master/install.sh)
 ```
 
 ## Установить старую версию (мы не рекомендуем)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.
 Чтобы установить желаемую версию, используйте следующую команду установки. Например, ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/3x-ui-api/$VERSION/install.sh") $VERSION
 ```
 
 ## SSL Сертификат
@@ -117,7 +117,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/WCOJBK/3x-ui-api/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. После загрузки архива выполните следующие команды для установки или обновления x-ui:
@@ -165,8 +165,8 @@ systemctl restart x-ui
 2. **Склонируйте репозиторий проекта:**
 
    ```sh
-   git clone https://github.com/MHSanaei/3x-ui.git
-   cd 3x-ui
+   git clone https://github.com/WCOJBK/3x-ui-api.git
+   cd 3x-ui-api
    ```
 
 3. **Запустите сервис:**
@@ -582,7 +582,9 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## Особая благодарность
 
-- [alireza0](https://github.com/alireza0/)
+- [MHSanaei](https://github.com/MHSanaei/) - Создатель оригинального проекта 3x-ui
+- [alireza0](https://github.com/alireza0/) - Участник оригинального проекта
+- Текущий разработчик: [WCOJBK](https://github.com/WCOJBK/) - Улучшенная функциональность API
 
 ## Благодарности
 
