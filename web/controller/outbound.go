@@ -63,7 +63,8 @@ func (a *OutboundController) addOutbound(c *gin.Context) {
 	}
 
 	// Add the outbound configuration
-	config.OutboundConfigs = append(config.OutboundConfigs, json_util.ToRawMessage(outbound))
+	outboundData := json_util.ToRawMessage(outbound)
+	config.OutboundConfigs = append(config.OutboundConfigs, outboundData)
 
 	err = a.xrayService.SetXrayConfig(config)
 	if err != nil {
@@ -89,16 +90,16 @@ func (a *OutboundController) delOutbound(c *gin.Context) {
 
 	var found bool
 	var newOutbounds []json_util.RawMessage
-	for _, outbound := range config.OutboundConfigs {
+	for _, outboundData := range config.OutboundConfigs {
 		var ob map[string]interface{}
-		if err := json.Unmarshal(outbound, &ob); err != nil {
+		if err := json.Unmarshal([]byte(outboundData), &ob); err != nil {
 			continue
 		}
 		if ob["tag"] == tag {
 			found = true
 			continue
 		}
-		newOutbounds = append(newOutbounds, outbound)
+		newOutbounds = append(newOutbounds, outboundData)
 	}
 
 	if !found {
@@ -148,16 +149,16 @@ func (a *OutboundController) updateOutbound(c *gin.Context) {
 
 	var found bool
 	var newOutbounds []json_util.RawMessage
-	for _, outbound := range config.OutboundConfigs {
+	for _, outboundData := range config.OutboundConfigs {
 		var ob map[string]interface{}
-		if err := json.Unmarshal(outbound, &ob); err != nil {
+		if err := json.Unmarshal([]byte(outboundData), &ob); err != nil {
 			continue
 		}
 		if ob["tag"] == tag {
 			found = true
 			newOutbounds = append(newOutbounds, json_util.ToRawMessage(newOutbound))
 		} else {
-			newOutbounds = append(newOutbounds, outbound)
+			newOutbounds = append(newOutbounds, outboundData)
 		}
 	}
 

@@ -410,8 +410,6 @@ func (a *InboundController) onlines(c *gin.Context) {
 // 辅助函数
 func generateSubID(email string) string {
 	// 生成基于邮箱和时间戳的唯一SubID
-	timestamp := time.Now().Unix()
-	data := fmt.Sprintf("%s-%d", email, timestamp)
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return fmt.Sprintf("%s-%s", strings.ReplaceAll(email, "@", "-"), hex.EncodeToString(bytes)[:8])

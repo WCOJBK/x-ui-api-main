@@ -1,6 +1,6 @@
 module x-ui
 
-go 1.23.5
+go 1.21
 
 require (
 	github.com/gin-contrib/gzip v1.2.2
@@ -14,7 +14,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v4 v4.25.1
 	github.com/valyala/fasthttp v1.58.0
-	github.com/xtls/xray-core v1.8.25-0.20250130105737-0a8470cb14eb
+	github.com/xtls/xray-core v1.8.24
 	go.uber.org/atomic v1.11.0
 	golang.org/x/text v0.21.0
 	google.golang.org/grpc v1.70.0
