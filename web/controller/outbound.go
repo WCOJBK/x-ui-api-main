@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
-	"x-ui/util/json_util"
 	"x-ui/web/service"
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +17,8 @@ func NewOutboundController(g *gin.RouterGroup) *OutboundController {
 }
 
 func (a *OutboundController) initRouter(g *gin.RouterGroup) {
-	// Routes are handled directly on the group (no additional sub-group needed)
+	g = g.Group("/outbound")
+
 	g.POST("/list", a.getOutbounds)
 	g.POST("/add", a.addOutbound)
 	g.POST("/del/:tag", a.delOutbound)
@@ -62,8 +61,7 @@ func (a *OutboundController) addOutbound(c *gin.Context) {
 	}
 
 	// Add the outbound configuration
-	outboundData := json_util.ToRawMessage(outbound)
-	config.OutboundConfigs = append(config.OutboundConfigs, outboundData)
+	config.OutboundConfigs = append(config.OutboundConfigs, json_util.ToRawMessage(outbound))
 
 	err = a.xrayService.SetXrayConfig(config)
 	if err != nil {
@@ -89,16 +87,16 @@ func (a *OutboundController) delOutbound(c *gin.Context) {
 
 	var found bool
 	var newOutbounds []json_util.RawMessage
-	for _, outboundData := range config.OutboundConfigs {
+	for _, outbound := range config.OutboundConfigs {
 		var ob map[string]interface{}
-		if err := json.Unmarshal([]byte(outboundData), &ob); err != nil {
+		if err := json.Unmarshal(outbound, &ob); err != nil {
 			continue
 		}
 		if ob["tag"] == tag {
 			found = true
 			continue
 		}
-		newOutbounds = append(newOutbounds, outboundData)
+		newOutbounds = append(newOutbounds, outbound)
 	}
 
 	if !found {
@@ -148,16 +146,16 @@ func (a *OutboundController) updateOutbound(c *gin.Context) {
 
 	var found bool
 	var newOutbounds []json_util.RawMessage
-	for _, outboundData := range config.OutboundConfigs {
+	for _, outbound := range config.OutboundConfigs {
 		var ob map[string]interface{}
-		if err := json.Unmarshal([]byte(outboundData), &ob); err != nil {
+		if err := json.Unmarshal(outbound, &ob); err != nil {
 			continue
 		}
 		if ob["tag"] == tag {
 			found = true
 			newOutbounds = append(newOutbounds, json_util.ToRawMessage(newOutbound))
 		} else {
-			newOutbounds = append(newOutbounds, outboundData)
+			newOutbounds = append(newOutbounds, outbound)
 		}
 	}
 

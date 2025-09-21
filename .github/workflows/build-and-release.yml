@@ -1,0 +1,215 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: 'v2.5.2'
+
+env:
+  GO_VERSION: '1.21'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, 386, arm64, armv7, armv6, armv5, s390x]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Get version
+      id: version
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        elif [[ "${{ github.event.inputs.version }}" != "" ]]; then
+          VERSION=${{ github.event.inputs.version }}
+        else
+          VERSION=v$(cat config/version)-$(git rev-parse --short HEAD)
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.arch }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.arch }}-
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+    - name: Download Xray
+      run: |
+        ./build-xray.sh ${{ matrix.arch }}
+
+    - name: Build binary
+      env:
+        ARCH: ${{ matrix.arch }}
+      run: |
+        ./build-single.sh ${{ matrix.arch }}
+
+    - name: Create package
+      run: |
+        ./package.sh ${{ matrix.arch }} ${{ steps.version.outputs.version }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: x-ui-linux-${{ matrix.arch }}
+        path: release/x-ui-linux-${{ matrix.arch }}.tar.gz
+        retention-days: 1
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version
+      id: version
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        elif [[ "${{ github.event.inputs.version }}" != "" ]]; then
+          VERSION=${{ github.event.inputs.version }}
+        else
+          VERSION=v$(cat config/version)-$(git rev-parse --short HEAD)
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release files
+      run: |
+        mkdir -p release
+        find artifacts -name "*.tar.gz" -exec cp {} release/ \;
+        cd release
+        
+        # Generate checksums
+        sha256sum *.tar.gz > checksums.sha256
+        
+        # Create release notes
+        cat > release-notes.md << EOF
+        ## 3X-UI ${{ steps.version.outputs.version }}
+        
+        ### 安装方法 / Installation Methods
+        
+        #### 快速安装 / Quick Install
+        \`\`\`bash
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/quick-install.sh | bash
+        \`\`\`
+        
+        #### 手动安装 / Manual Installation
+        1. 下载对应架构的文件 / Download the file for your architecture
+        2. 解压并运行安装脚本 / Extract and run the install script:
+        \`\`\`bash
+        tar -xzf x-ui-linux-{arch}.tar.gz
+        cd x-ui-linux-{arch}
+        sudo ./install.sh
+        \`\`\`
+        
+        ### 支持的架构 / Supported Architectures
+        - \`amd64\` - 64-bit Intel/AMD (most common)
+        - \`arm64\` - 64-bit ARM (modern ARM devices, Apple M1, etc.)
+        - \`armv7\` - 32-bit ARMv7 (Raspberry Pi 2/3/4, etc.)
+        - \`armv6\` - 32-bit ARMv6 (Raspberry Pi Zero, etc.)  
+        - \`armv5\` - 32-bit ARMv5 (legacy ARM devices)
+        - \`386\` - 32-bit Intel/AMD
+        - \`s390x\` - IBM System z
+        
+        ### 校验和 / Checksums
+        请验证下载文件的完整性 / Please verify the integrity of downloaded files:
+        \`\`\`bash
+        sha256sum -c checksums.sha256
+        \`\`\`
+        EOF
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: 3X-UI ${{ steps.version.outputs.version }}
+        body_path: release/release-notes.md
+        files: |
+          release/*.tar.gz
+          release/checksums.sha256
+        draft: false
+        prerelease: false
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-install:
+    name: Test Installation
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download amd64 artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: x-ui-linux-amd64
+        path: test
+
+    - name: Test installation
+      run: |
+        cd test
+        tar -xzf x-ui-linux-amd64.tar.gz
+        cd x-ui-linux-amd64
+        
+        # Test if files are present
+        test -f x-ui
+        test -f bin/xray-linux-amd64
+        test -f install.sh
+        test -f x-ui.service
+        
+        # Test if binaries are executable
+        test -x x-ui
+        test -x bin/xray-linux-amd64
+        test -x install.sh
+        
+        echo "✓ Installation package test passed"
+
+    - name: Test quick install script
+      run: |
+        # Test script syntax
+        bash -n quick-install.sh
+        echo "✓ Quick install script syntax test passed"

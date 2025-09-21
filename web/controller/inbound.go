@@ -1,20 +1,15 @@
 package controller
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
-	"time"
 
 	"x-ui/database/model"
 	"x-ui/web/service"
 	"x-ui/web/session"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type InboundController struct {
@@ -38,9 +33,6 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/clientIps/:email", a.getClientIps)
 	g.POST("/clearClientIps/:email", a.clearClientIps)
 	g.POST("/addClient", a.addInboundClient)
-	g.POST("/addClientAdvanced", a.addInboundClientAdvanced)  // 新增：高级客户端添加
-	g.GET("/client/details/:email", a.getClientDetails)       // 新增：获取客户端详情
-	g.POST("/client/update/:email", a.updateClientAdvanced)   // 新增：更新客户端高级设置
 	g.POST("/:id/delClient/:clientId", a.delInboundClient)
 	g.POST("/updateClient/:clientId", a.updateInboundClient)
 	g.POST("/:id/resetClientTraffic/:email", a.resetClientTraffic)
@@ -198,77 +190,6 @@ func (a *InboundController) addInboundClient(c *gin.Context) {
 	}
 }
 
-func (a *InboundController) addInboundClientAdvanced(c *gin.Context) {
-	type AddClientRequest struct {
-		InboundId  int    `json:"inboundId" form:"inboundId"`
-		Email      string `json:"email" form:"email" binding:"required"`
-		UUID       string `json:"uuid" form:"uuid"`
-		Password   string `json:"password" form:"password"`
-		Flow       string `json:"flow" form:"flow"`
-		LimitIP    int    `json:"limitIp" form:"limitIp"`
-		TotalGB    int64  `json:"totalGB" form:"totalGB"`
-		ExpiryTime int64  `json:"expiryTime" form:"expiryTime"`
-		Enable     bool   `json:"enable" form:"enable"`
-		TgID       int64  `json:"tgId" form:"tgId"`
-		SubID      string `json:"subId" form:"subId"`
-		Comment    string `json:"comment" form:"comment"`
-		Reset      int    `json:"reset" form:"reset"`
-	}
-
-	var req AddClientRequest
-	err := c.ShouldBind(&req)
-	if err != nil {
-		jsonMsg(c, "Invalid request data", err)
-		return
-	}
-
-	// 如果没有提供SubID，生成一个唯一的
-	if req.SubID == "" {
-		req.SubID = generateSubID(req.Email)
-	}
-
-	// 如果没有提供UUID，生成一个
-	if req.UUID == "" {
-		req.UUID = generateUUID()
-	}
-
-	// 构建客户端配置
-	client := model.Client{
-		ID:         req.UUID,
-		Email:      req.Email,
-		Password:   req.Password,
-		Flow:       req.Flow,
-		LimitIP:    req.LimitIP,
-		TotalGB:    req.TotalGB,
-		ExpiryTime: req.ExpiryTime,
-		Enable:     req.Enable,
-		TgID:       req.TgID,
-		SubID:      req.SubID,
-		Comment:    req.Comment,
-		Reset:      req.Reset,
-	}
-
-	needRestart, err := a.inboundService.AddInboundClientAdvanced(req.InboundId, &client)
-	if err != nil {
-		jsonMsg(c, "Failed to add client", err)
-		return
-	}
-
-	// 返回客户端信息和订阅链接
-	response := map[string]interface{}{
-		"client": client,
-		"subscription": map[string]string{
-			"normalSub": generateSubURL(c.Request.Host, req.SubID),
-			"jsonSub":   generateJsonSubURL(c.Request.Host, req.SubID),
-		},
-	}
-
-	jsonObj(c, response, nil)
-	if needRestart {
-		a.xrayService.SetToNeedRestart()
-	}
-}
-
 func (a *InboundController) delInboundClient(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -405,85 +326,4 @@ func (a *InboundController) delDepletedClients(c *gin.Context) {
 
 func (a *InboundController) onlines(c *gin.Context) {
 	jsonObj(c, a.inboundService.GetOnlineClients(), nil)
-}
-
-// 辅助函数
-func generateSubID(email string) string {
-	// 生成基于邮箱和时间戳的唯一SubID
-	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(email, "@", "-"), hex.EncodeToString(bytes)[:8])
-}
-
-func generateUUID() string {
-	return uuid.New().String()
-}
-
-func generateSubURL(host, subID string) string {
-	return fmt.Sprintf("http://%s/sub/%s", host, subID)
-}
-
-func generateJsonSubURL(host, subID string) string {
-	return fmt.Sprintf("http://%s/json/%s", host, subID)
-}
-
-// 获取客户端详细信息
-func (a *InboundController) getClientDetails(c *gin.Context) {
-	email := c.Param("email")
-	if email == "" {
-		jsonMsg(c, "Invalid email parameter", nil)
-		return
-	}
-
-	clientTraffic, err := a.inboundService.GetClientTrafficByEmail(email)
-	if err != nil {
-		jsonMsg(c, "Client not found", err)
-		return
-	}
-
-	// 获取客户端订阅链接
-	response := map[string]interface{}{
-		"traffic": clientTraffic,
-		"subscription": map[string]string{
-			"normalSub": generateSubURL(c.Request.Host, email), // 使用email作为临时SubID
-			"jsonSub":   generateJsonSubURL(c.Request.Host, email),
-		},
-	}
-
-	jsonObj(c, response, nil)
-}
-
-// 更新客户端高级设置
-func (a *InboundController) updateClientAdvanced(c *gin.Context) {
-	email := c.Param("email")
-	if email == "" {
-		jsonMsg(c, "Invalid email parameter", nil)
-		return
-	}
-
-	type UpdateClientRequest struct {
-		LimitIP    *int   `json:"limitIp,omitempty"`
-		TotalGB    *int64 `json:"totalGB,omitempty"`
-		ExpiryTime *int64 `json:"expiryTime,omitempty"`
-		Enable     *bool  `json:"enable,omitempty"`
-		TgID       *int64 `json:"tgId,omitempty"`
-		SubID      string `json:"subId,omitempty"`
-		Comment    string `json:"comment,omitempty"`
-		Reset      *int   `json:"reset,omitempty"`
-	}
-
-	var req UpdateClientRequest
-	err := c.ShouldBind(&req)
-	if err != nil {
-		jsonMsg(c, "Invalid request data", err)
-		return
-	}
-
-	err = a.inboundService.UpdateClientAdvanced(email, &req)
-	if err != nil {
-		jsonMsg(c, "Failed to update client", err)
-		return
-	}
-
-	jsonMsg(c, "Client updated successfully", nil)
 }

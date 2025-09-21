@@ -225,18 +225,3 @@ func (s *XrayService) SetToNeedRestart() {
 func (s *XrayService) IsNeedRestartAndSetFalse() bool {
 	return isNeedXrayRestart.CompareAndSwap(true, false)
 }
-
-func (s *XrayService) SetXrayConfig(config *xray.Config) error {
-	configData, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	
-	err = s.settingService.SaveXrayConfigTemplate(string(configData))
-	if err != nil {
-		return err
-	}
-	
-	s.SetToNeedRestart()
-	return nil
-}

@@ -239,10 +239,6 @@ func (s *SettingService) GetXrayConfigTemplate() (string, error) {
 	return s.getString("xrayTemplateConfig")
 }
 
-func (s *SettingService) SaveXrayConfigTemplate(template string) error {
-	return s.setString("xrayTemplateConfig", template)
-}
-
 func (s *SettingService) GetListen() (string, error) {
 	return s.getString("webListen")
 }

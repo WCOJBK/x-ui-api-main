@@ -32,7 +32,7 @@
 ## Install & Upgrade
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
 ```
 
 ## Install legacy Version (we don't recommend)
@@ -40,7 +40,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/master/in
 To install your desired version, use following installation command. e.g., ver `v1.7.9`:
 
 ```
-VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/$VERSION/install.sh") $VERSION
+VERSION=v1.7.9 && bash <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/$VERSION/install.sh") $VERSION
 ```
 
 ## SSL Certificate
@@ -118,7 +118,7 @@ case "${ARCH}" in
 esac
 
 
-wget https://github.com/WCOJBK/x-ui-api-main/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
+wget https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-${XUI_ARCH}.tar.gz
 ```
 
 2. Once the compressed package is downloaded, execute the following commands to install or upgrade x-ui:
@@ -166,8 +166,8 @@ systemctl restart x-ui
 2. **Clone the Project Repository:**
 
    ```sh
-   git clone https://github.com/WCOJBK/x-ui-api-main.git
-   cd x-ui-api-main
+   git clone https://github.com/MHSanaei/3x-ui.git
+   cd 3x-ui
    ```
 
 3. **Start the Service:**
@@ -518,69 +518,12 @@ Enter the user ID in input field number 4. The Telegram accounts with this id wi
 | `POST` | `"/resetAllClientTraffics/:id"`    | Reset traffics of all clients in an inbound |
 | `POST` | `"/delDepletedClients/:id"`        | Delete inbound depleted clients (-1: all)   |
 | `POST` | `"/onlines"`                       | Get Online users ( list of emails )         |
-| `POST` | `"/addClientAdvanced"`             | Add client with advanced settings (traffic limit, expiry, custom subscription) |
-| `GET`  | `"/client/details/:email"`         | Get client details and subscription URLs     |
-| `POST` | `"/client/update/:email"`          | Update client advanced settings              |
-
-**Enhanced Outbound Management:**
-| Method | Path                               | Action                                      |
-| :----: | ---------------------------------- | ------------------------------------------- |
-| `POST` | `"/outbounds/list"`                | Get all outbounds                            |
-| `POST` | `"/outbounds/add"`                 | Add outbound rule                           |
-| `POST` | `"/outbounds/del/:tag"`            | Delete outbound by tag                      |
-| `POST` | `"/outbounds/update/:tag"`         | Update outbound by tag                      |
-| `POST` | `"/outbounds/resetTraffic/:tag"`   | Reset outbound traffic                      |
-| `POST` | `"/outbounds/resetAllTraffics"`    | Reset all outbound traffics                |
-
-**Enhanced Routing Management:**
-| Method | Path                               | Action                                      |
-| :----: | ---------------------------------- | ------------------------------------------- |
-| `POST` | `"/routing/get"`                   | Get routing configuration                    |
-| `POST` | `"/routing/update"`                | Update routing configuration                |
-| `POST` | `"/routing/rule/add"`              | Add routing rule                            |
-| `POST` | `"/routing/rule/del"`              | Delete routing rule                         |
-| `POST` | `"/routing/rule/update"`           | Update routing rule                         |
-
-**Enhanced Subscription Management:**
-| Method | Path                               | Action                                      |
-| :----: | ---------------------------------- | ------------------------------------------- |
-| `POST` | `"/subscription/settings/get"`     | Get subscription settings                   |
-| `POST` | `"/subscription/settings/update"`  | Update subscription settings                |
-| `POST` | `"/subscription/enable"`           | Enable subscription service                 |
-| `POST` | `"/subscription/disable"`          | Disable subscription service                |
-| `GET`  | `"/subscription/urls/:id"`         | Get subscription URLs for inbound           |
 
 \*- The field `clientId` should be filled by:
 
 - `client.id` for VMESS and VLESS
 - `client.password` for TROJAN
 - `client.email` for Shadowsocks
-
-### Advanced Client Features
-
-The enhanced API now supports advanced client management features:
-
-- **Traffic Limits:** Set custom traffic limits per client (totalGB)
-- **Expiry Time:** Set automatic client expiration (expiryTime)  
-- **IP Limits:** Control maximum concurrent IP connections (limitIp)
-- **Custom Subscription:** Generate personalized subscription URLs (subId)
-- **Telegram Integration:** Link clients with Telegram notifications (tgId)
-- **Comments:** Add notes and descriptions for clients (comment)
-
-**Example - Add Client with Advanced Settings:**
-```json
-{
-  "inboundId": 1,
-  "email": "user@example.com",
-  "flow": "xtls-rprx-vision",
-  "limitIp": 2,
-  "totalGB": 107374182400,
-  "expiryTime": 1735689600000,
-  "enable": true,
-  "subId": "custom-subscription-id",
-  "comment": "VIP User"
-}
-```
 
 - [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5%26entityType%3Dcollection%26workspaceId%3Dd64f609f-485a-4951-9b8f-876b3f917124)
 </details>
@@ -641,9 +584,7 @@ XUI_BIN_FOLDER="bin" XUI_DB_FOLDER="/etc/x-ui" go build main.go
 
 ## A Special Thanks to
 
-- [MHSanaei](https://github.com/MHSanaei/) - Original creator of 3x-ui project
-- [alireza0](https://github.com/alireza0/) - Contributor to the original project  
-- Current maintainer: [WCOJBK](https://github.com/WCOJBK/) - Enhanced API functionality
+- [alireza0](https://github.com/alireza0/)
 
 ## Acknowledgment
 

@@ -1,7 +1,6 @@
 package json_util
 
 import (
-	"encoding/json"
 	"errors"
 )
 
@@ -22,13 +21,4 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 	}
 	*m = append((*m)[0:0], data...)
 	return nil
-}
-
-// ToRawMessage converts an interface{} to RawMessage
-func ToRawMessage(v interface{}) RawMessage {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return RawMessage("null")
-	}
-	return RawMessage(data)
 }

@@ -98,13 +98,3 @@ func (s *OutboundService) ResetOutboundTraffic(tag string) error {
 
 	return nil
 }
-
-// ResetTraffic resets traffic for a specific outbound tag
-func (s *OutboundService) ResetTraffic(tag string) error {
-	return s.ResetOutboundTraffic(tag)
-}
-
-// ResetAllTraffics resets traffic for all outbounds
-func (s *OutboundService) ResetAllTraffics() error {
-	return s.ResetOutboundTraffic("-alltags-")
-}
