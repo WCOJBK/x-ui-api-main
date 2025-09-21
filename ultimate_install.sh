@@ -203,6 +203,7 @@ if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     echo -e "${BLUE}  🔧 修复其他关键依赖...${PLAIN}"
     $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
     $GO_CMD mod edit -replace=google.golang.org/protobuf=google.golang.org/protobuf@v1.31.0
+    $GO_CMD mod edit -replace=go.uber.org/mock=go.uber.org/mock@v0.4.0
     
     echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
     echo -e "${PLAIN}  - 所有Go 1.21不兼容的依赖已替换为兼容版本${PLAIN}"
@@ -253,6 +254,7 @@ else
         # 其他关键依赖修复
         $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
         $GO_CMD mod edit -replace=google.golang.org/protobuf=google.golang.org/protobuf@v1.31.0
+        $GO_CMD mod edit -replace=go.uber.org/mock=go.uber.org/mock@v0.4.0
         
         $GO_CMD mod tidy
         echo -e "${BLUE}重新尝试编译...${PLAIN}"
