@@ -62,26 +62,20 @@ else
     # 自动修复常见的版本兼容问题
     echo -e "${BLUE}修复依赖版本...${PLAIN}"
     
-    # 替换go.mod中的高版本依赖
-    if grep -q "github.com/gorilla/sessions v1.4" go.mod; then
-        sed -i 's/github.com\/gorilla\/sessions v1\.4\.[0-9]/github.com\/gorilla\/sessions v1.3.0/g' go.mod
-        echo -e "${GREEN}✅ 修复 gorilla/sessions 版本${PLAIN}"
-    fi
+    # 自动修复所有已知的Go版本兼容问题
+    echo -e "${BLUE}正在修复所有已知的版本兼容问题...${PLAIN}"
     
-    if grep -q "github.com/mymmrac/telego v0.3[2-9]" go.mod; then
-        sed -i 's/github.com\/mymmrac\/telego v0\.3[0-9]\.[0-9]/github.com\/mymmrac\/telego v0.29.2/g' go.mod
-        echo -e "${GREEN}✅ 修复 telego 版本${PLAIN}"
-    fi
-    
-    if grep -q "github.com/xtls/reality.*20240909" go.mod; then
-        sed -i 's/github.com\/xtls\/reality v0\.0\.0-20240909[0-9a-z\-]*/github.com\/xtls\/reality v0.0.0-20240712055506-48f0b2a5ed6d/g' go.mod
-        echo -e "${GREEN}✅ 修复 reality 版本${PLAIN}"
-    fi
-    
-    # 强制使用兼容版本
+    # 修复各种高版本依赖到Go 1.21兼容版本
     go mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
     go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
     go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
+    go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+    
+    echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
+    echo -e "${GREEN}  - gorilla/sessions → v1.3.0${PLAIN}"
+    echo -e "${GREEN}  - mymmrac/telego → v0.29.2${PLAIN}"
+    echo -e "${GREEN}  - xtls/reality → 20240712版本${PLAIN}"
+    echo -e "${GREEN}  - cloudflare/circl → v1.3.9${PLAIN}"
     
     # 重新下载依赖并编译
     go mod tidy
