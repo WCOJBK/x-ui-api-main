@@ -39,17 +39,46 @@ fi
 
 # 2. 安装Go环境
 echo -e "${YELLOW}🔧 检查Go环境...${PLAIN}"
+GO_VERSION_REQUIRED="1.23"
+CURRENT_GO_VERSION=""
+
+if command -v go &> /dev/null; then
+    CURRENT_GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
+    echo -e "${BLUE}当前Go版本: ${CURRENT_GO_VERSION}${PLAIN}"
+fi
+
+# 检查是否需要安装或升级Go
+NEED_INSTALL_GO=false
 if ! command -v go &> /dev/null; then
-    echo -e "${YELLOW}📥 安装Go 1.21...${PLAIN}"
+    echo -e "${YELLOW}📥 未检测到Go环境${PLAIN}"
+    NEED_INSTALL_GO=true
+elif [[ "$CURRENT_GO_VERSION" < "$GO_VERSION_REQUIRED" ]] || [[ "$CURRENT_GO_VERSION" =~ ^1\.(21|22) ]]; then
+    echo -e "${YELLOW}📥 Go版本过低，需要升级到1.23+${PLAIN}"
+    NEED_INSTALL_GO=true
+fi
+
+if [ "$NEED_INSTALL_GO" = true ]; then
+    echo -e "${YELLOW}📦 安装Go 1.23...${PLAIN}"
     cd /tmp
-    wget -q https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
-    tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-    export PATH=$PATH:/usr/local/go/bin
-    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-    rm -f go1.21.0.linux-amd64.tar.gz
+    # 备份旧的Go (如果存在)
+    if [ -d "/usr/local/go" ]; then
+        rm -rf /usr/local/go.backup 2>/dev/null || true
+        mv /usr/local/go /usr/local/go.backup 2>/dev/null || true
+    fi
+    
+    wget -q https://golang.org/dl/go1.23.0.linux-amd64.tar.gz
+    tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
+    export PATH=/usr/local/go/bin:$PATH
+    
+    # 更新PATH环境变量
+    if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
+        echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
+    fi
+    
+    rm -f go1.23.0.linux-amd64.tar.gz
     echo -e "${GREEN}✅ Go安装完成: $(go version)${PLAIN}"
 else
-    echo -e "${GREEN}✅ Go环境已存在: $(go version)${PLAIN}"
+    echo -e "${GREEN}✅ Go环境版本满足要求${PLAIN}"
 fi
 
 # 3. 下载源码
