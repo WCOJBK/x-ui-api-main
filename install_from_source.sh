@@ -39,22 +39,26 @@ fi
 
 # 2. 安装Go环境
 echo -e "${YELLOW}🔧 检查Go环境...${PLAIN}"
-GO_VERSION_REQUIRED="1.23"
-CURRENT_GO_VERSION=""
-
-if command -v go &> /dev/null; then
-    CURRENT_GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
-    echo -e "${BLUE}当前Go版本: ${CURRENT_GO_VERSION}${PLAIN}"
-fi
 
 # 检查是否需要安装或升级Go
 NEED_INSTALL_GO=false
 if ! command -v go &> /dev/null; then
     echo -e "${YELLOW}📥 未检测到Go环境${PLAIN}"
     NEED_INSTALL_GO=true
-elif [[ "$CURRENT_GO_VERSION" < "$GO_VERSION_REQUIRED" ]] || [[ "$CURRENT_GO_VERSION" =~ ^1\.(21|22) ]]; then
-    echo -e "${YELLOW}📥 Go版本过低，需要升级到1.23+${PLAIN}"
-    NEED_INSTALL_GO=true
+else
+    CURRENT_GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
+    echo -e "${BLUE}当前Go版本: ${CURRENT_GO_VERSION}${PLAIN}"
+    
+    # 检查是否为1.21或1.22版本，需要升级到1.23+
+    if [[ "$CURRENT_GO_VERSION" =~ ^1\.(21|22) ]]; then
+        echo -e "${YELLOW}📥 Go版本过低 (需要1.23+)，正在升级...${PLAIN}"
+        NEED_INSTALL_GO=true
+    elif [[ "$CURRENT_GO_VERSION" =~ ^1\.20 ]] || [[ "$CURRENT_GO_VERSION" =~ ^1\.1 ]]; then
+        echo -e "${YELLOW}📥 Go版本过低 (需要1.23+)，正在升级...${PLAIN}"
+        NEED_INSTALL_GO=true
+    else
+        echo -e "${GREEN}✅ Go环境版本满足要求${PLAIN}"
+    fi
 fi
 
 if [ "$NEED_INSTALL_GO" = true ]; then
