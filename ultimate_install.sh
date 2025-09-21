@@ -195,6 +195,9 @@ if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     $GO_CMD mod edit -replace=golang.org/x/sys=golang.org/x/sys@v0.15.0
     $GO_CMD mod edit -replace=golang.org/x/text=golang.org/x/text@v0.14.0
     $GO_CMD mod edit -replace=golang.org/x/tools=golang.org/x/tools@v0.16.0
+    $GO_CMD mod edit -replace=golang.org/x/mod=golang.org/x/mod@v0.14.0
+    $GO_CMD mod edit -replace=golang.org/x/sync=golang.org/x/sync@v0.5.0
+    $GO_CMD mod edit -replace=golang.org/x/time=golang.org/x/time@v0.5.0
     
     echo -e "${BLUE}  🔧 修复其他关键依赖...${PLAIN}"
     $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
@@ -241,6 +244,9 @@ else
         $GO_CMD mod edit -replace=golang.org/x/sys=golang.org/x/sys@v0.15.0
         $GO_CMD mod edit -replace=golang.org/x/text=golang.org/x/text@v0.14.0
         $GO_CMD mod edit -replace=golang.org/x/tools=golang.org/x/tools@v0.16.0
+        $GO_CMD mod edit -replace=golang.org/x/mod=golang.org/x/mod@v0.14.0
+        $GO_CMD mod edit -replace=golang.org/x/sync=golang.org/x/sync@v0.5.0
+        $GO_CMD mod edit -replace=golang.org/x/time=golang.org/x/time@v0.5.0
         
         # 其他关键依赖修复
         $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
