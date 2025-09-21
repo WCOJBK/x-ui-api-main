@@ -240,17 +240,14 @@ EOF
 package main
 
 import (
-    "database/sql"
     "fmt"
     "log"
-    "net/http"
     "os"
     "strconv"
     "time"
 
     "github.com/gin-contrib/cors"
     "github.com/gin-gonic/gin"
-    _ "github.com/mattn/go-sqlite3"
     "gorm.io/driver/sqlite"
     "gorm.io/gorm"
 )
@@ -283,16 +280,14 @@ type ClientTraffic struct {
 
 // 初始化数据库连接
 func initDB() {
-    var err error
-    
     // 尝试连接3X-UI数据库
     if _, err := os.Stat(config.DBPath); err == nil {
-        db, err = gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{})
-        if err != nil {
-            log.Printf("无法连接3X-UI数据库: %v", err)
-            db = nil
-        } else {
+        if gormDB, openErr := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{}); openErr == nil {
+            db = gormDB
             log.Printf("已连接3X-UI数据库: %s", config.DBPath)
+        } else {
+            log.Printf("无法连接3X-UI数据库: %v", openErr)
+            db = nil
         }
     }
 }
