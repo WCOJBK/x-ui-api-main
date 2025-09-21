@@ -59,6 +59,8 @@ go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-2024
 go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
 go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
 go mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
+go mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
+go mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
 
 echo -e "${BLUE}下载模块依赖...${PLAIN}"
 go mod tidy
