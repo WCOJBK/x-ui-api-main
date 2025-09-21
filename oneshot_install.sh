@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# 3X-UI Enhanced API 简化安装脚本 - 直接使用Go 1.21
-# 作者: WCOJBK
+# 3X-UI Enhanced API 一次性解决所有问题的安装脚本
+# 完全兼容Go 1.21，无需升级，彻底解决依赖版本问题
 
 set -e
 
@@ -11,9 +11,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 PLAIN='\033[0m'
 
-echo -e "${GREEN}========================================${PLAIN}"
-echo -e "${GREEN} 3X-UI Enhanced API 简化安装${PLAIN}"
-echo -e "${GREEN}========================================${PLAIN}"
+echo -e "${GREEN}============================================${PLAIN}"
+echo -e "${GREEN} 3X-UI Enhanced API 一次性安装解决方案${PLAIN}"
+echo -e "${GREEN}============================================${PLAIN}"
+echo -e "${BLUE}💡 专为Go 1.21设计，无需升级，一次成功${PLAIN}"
 
 # 检查root权限
 [[ $EUID -ne 0 ]] && echo -e "${RED}错误: 请使用root权限运行此脚本${PLAIN}" && exit 1
@@ -21,16 +22,14 @@ echo -e "${GREEN}========================================${PLAIN}"
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "localhost")
 echo -e "${BLUE}🌐 服务器IP: ${SERVER_IP}${PLAIN}"
 
-# 检查Go环境
-echo -e "${YELLOW}🔧 检查Go环境...${PLAIN}"
-if ! command -v go &> /dev/null; then
-    echo -e "${YELLOW}📦 安装Go环境...${PLAIN}"
-    if command -v apt &> /dev/null; then
-        apt update >/dev/null 2>&1
-        apt install -y golang-go git curl wget >/dev/null 2>&1
-    elif command -v yum &> /dev/null; then
-        yum install -y golang git curl wget >/dev/null 2>&1
-    fi
+# 安装基础依赖
+echo -e "${YELLOW}📦 安装基础依赖...${PLAIN}"
+if command -v apt &> /dev/null; then
+    apt update >/dev/null 2>&1
+    apt install -y curl wget git build-essential golang-go >/dev/null 2>&1
+elif command -v yum &> /dev/null; then
+    yum update -y >/dev/null 2>&1
+    yum install -y curl wget git gcc make golang >/dev/null 2>&1
 fi
 
 echo -e "${GREEN}✅ Go环境: $(go version)${PLAIN}"
@@ -42,15 +41,8 @@ rm -rf x-ui-api-main
 git clone https://github.com/WCOJBK/x-ui-api-main.git
 cd x-ui-api-main
 
-echo -e "${BLUE}💡 使用Go 1.21兼容版本，无需升级${PLAIN}"
-
-# 设置Go代理
-export GOPROXY=https://goproxy.cn,direct
-export GOSUMDB=sum.golang.google.cn
-
+# 直接重写go.mod为完全兼容Go 1.21的版本
 echo -e "${YELLOW}🔧 创建Go 1.21完全兼容的go.mod...${PLAIN}"
-
-# 重写go.mod文件，使用所有兼容版本
 cat > go.mod << 'EOF'
 module x-ui
 
@@ -101,7 +93,11 @@ replace (
 )
 EOF
 
-echo -e "${GREEN}✅ 已创建包含所有兼容性修复的go.mod${PLAIN}"
+echo -e "${GREEN}✅ 已创建完全兼容Go 1.21的go.mod${PLAIN}"
+
+# 设置Go代理
+export GOPROXY=https://goproxy.cn,direct
+export GOSUMDB=sum.golang.google.cn
 
 echo -e "${YELLOW}🔨 编译Enhanced API版本...${PLAIN}"
 echo -e "${BLUE}下载兼容依赖...${PLAIN}"
@@ -112,6 +108,8 @@ go build -ldflags "-s -w" -o x-ui .
 
 if [[ ! -f "./x-ui" ]]; then
     echo -e "${RED}❌ 编译失败${PLAIN}"
+    echo -e "${YELLOW}显示详细错误:${PLAIN}"
+    go build -ldflags "-s -w" -o x-ui . || true
     exit 1
 fi
 
@@ -126,17 +124,17 @@ rm -rf /usr/local/x-ui
 
 mkdir -p /usr/local/x-ui /etc/x-ui
 cp x-ui /usr/local/x-ui/
-cp x-ui.sh /usr/bin/x-ui 2>/dev/null || true
-chmod +x /usr/local/x-ui/x-ui
 
-# 如果没有x-ui.sh，创建一个简单的
-if [[ ! -f "/usr/bin/x-ui" ]]; then
+# 创建x-ui.sh脚本 (如果不存在)
+if [[ -f "x-ui.sh" ]]; then
+    cp x-ui.sh /usr/bin/x-ui
+else
     cat > /usr/bin/x-ui << 'EOF'
 #!/bin/bash
 /usr/local/x-ui/x-ui "$@"
 EOF
-    chmod +x /usr/bin/x-ui
 fi
+chmod +x /usr/local/x-ui/x-ui /usr/bin/x-ui
 
 # 创建服务文件
 echo -e "${BLUE}创建系统服务...${PLAIN}"
@@ -177,33 +175,38 @@ if systemctl is-active x-ui >/dev/null 2>&1; then
     
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${PLAIN}"
-    echo -e "${GREEN}║       🎉 3X-UI Enhanced API 安装成功！                   ║${PLAIN}"
+    echo -e "${GREEN}║         🎉 3X-UI Enhanced API 安装成功！                 ║${PLAIN}"
     echo -e "${GREEN}║                                                           ║${PLAIN}"
     echo -e "${GREEN}║  🌐 Web界面: http://${SERVER_IP}:${PORT}/               ║${PLAIN}"
     echo -e "${GREEN}║  👤 用户名: admin                                        ║${PLAIN}"
     echo -e "${GREEN}║  🔑 密码: admin                                          ║${PLAIN}"
     echo -e "${GREEN}║                                                           ║${PLAIN}"
     echo -e "${GREEN}║  🚀 Enhanced API功能 (49个端点):                         ║${PLAIN}"
-    echo -e "${GREEN}║  ✅ 入站管理 - 19个API (含高级客户端功能)                ║${PLAIN}"
-    echo -e "${GREEN}║  ✅ 出站管理 - 6个API (全新增强功能)                     ║${PLAIN}"
-    echo -e "${GREEN}║  ✅ 路由管理 - 5个API (全新增强功能)                     ║${PLAIN}"
-    echo -e "${GREEN}║  ✅ 订阅管理 - 5个API (全新增强功能)                     ║${PLAIN}"
     echo -e "${GREEN}║                                                           ║${PLAIN}"
-    echo -e "${GREEN}║  💡 特色功能:                                            ║${PLAIN}"
-    echo -e "${GREEN}║  • 流量限制 • 到期时间 • IP限制 • 自定义订阅              ║${PLAIN}"
-    echo -e "${GREEN}║  • Telegram集成 • 完整REST API                           ║${PLAIN}"
+    echo -e "${GREEN}║  📡 入站管理 - 19个API                                   ║${PLAIN}"
+    echo -e "${GREEN}║    • 基础CRUD • 高级客户端 • 流量管理                    ║${PLAIN}"
     echo -e "${GREEN}║                                                           ║${PLAIN}"
-    echo -e "${GREEN}║  🔧 管理命令:                                            ║${PLAIN}"
-    echo -e "${GREEN}║  systemctl status x-ui     # 查看服务状态                ║${PLAIN}"
-    echo -e "${GREEN}║  systemctl restart x-ui    # 重启服务                    ║${PLAIN}"
-    echo -e "${GREEN}║  x-ui settings             # 修改面板设置                ║${PLAIN}"
-    echo -e "${GREEN}║  journalctl -u x-ui -f     # 查看实时日志                ║${PLAIN}"
+    echo -e "${GREEN}║  🚀 出站管理 - 6个API (增强功能)                         ║${PLAIN}"
+    echo -e "${GREEN}║    • 出站配置 • 流量统计 • 规则管理                      ║${PLAIN}"
+    echo -e "${GREEN}║                                                           ║${PLAIN}"
+    echo -e "${GREEN}║  🛤️ 路由管理 - 5个API (增强功能)                         ║${PLAIN}"
+    echo -e "${GREEN}║    • 路由配置 • 规则管理 • 智能分流                      ║${PLAIN}"
+    echo -e "${GREEN}║                                                           ║${PLAIN}"
+    echo -e "${GREEN}║  📋 订阅管理 - 5个API (增强功能)                         ║${PLAIN}"
+    echo -e "${GREEN}║    • 订阅设置 • 链接生成 • 服务管理                      ║${PLAIN}"
+    echo -e "${GREEN}║                                                           ║${PLAIN}"
+    echo -e "${GREEN}║  💡 高级特色功能:                                        ║${PLAIN}"
+    echo -e "${GREEN}║  • 客户端流量限制 (totalGB)                              ║${PLAIN}"
+    echo -e "${GREEN}║  • 自动到期时间管理 (expiryTime)                         ║${PLAIN}"
+    echo -e "${GREEN}║  • IP连接数限制 (limitIp)                                ║${PLAIN}"
+    echo -e "${GREEN}║  • 自定义订阅ID (subId)                                  ║${PLAIN}"
+    echo -e "${GREEN}║  • Telegram集成通知 (tgId)                               ║${PLAIN}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${PLAIN}"
     
     # 测试服务
     echo -e "${YELLOW}🧪 测试服务连接...${PLAIN}"
     sleep 3
-    if curl -s "http://localhost:${PORT}/" >/dev/null; then
+    if curl -s "http://localhost:${PORT}/" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ Web服务运行正常${PLAIN}"
         
         # 测试API端点
@@ -213,18 +216,23 @@ if systemctl is-active x-ui >/dev/null 2>&1; then
         else
             echo -e "${YELLOW}⚠️ API端点需要登录访问 (正常行为)${PLAIN}"
         fi
+        
+        echo ""
+        echo -e "${BLUE}🎯 Enhanced API 测试示例:${PLAIN}"
+        echo -e "${PLAIN}# 登录获取session:${PLAIN}"
+        echo -e "${PLAIN}curl -c cookies.txt -X POST http://${SERVER_IP}:${PORT}/login \\${PLAIN}"
+        echo -e "${PLAIN}  -H \"Content-Type: application/json\" \\${PLAIN}"
+        echo -e "${PLAIN}  -d '{\"username\":\"admin\",\"password\":\"admin\"}'${PLAIN}"
+        echo ""
+        echo -e "${PLAIN}# 获取入站列表:${PLAIN}"
+        echo -e "${PLAIN}curl -b cookies.txt http://${SERVER_IP}:${PORT}/panel/api/inbounds/list${PLAIN}"
+        echo ""
+        echo -e "${PLAIN}# 获取出站列表 (增强功能):${PLAIN}"
+        echo -e "${PLAIN}curl -b cookies.txt -X POST http://${SERVER_IP}:${PORT}/panel/api/outbounds/list${PLAIN}"
+        
     else
         echo -e "${YELLOW}⚠️ Web服务正在启动中，请稍等...${PLAIN}"
     fi
-    
-    echo ""
-    echo -e "${BLUE}📖 快速开始指南:${PLAIN}"
-    echo -e "${PLAIN}1. 🌐 访问面板: http://${SERVER_IP}:${PORT}/${PLAIN}"
-    echo -e "${PLAIN}2. 🔑 使用 admin/admin 登录${PLAIN}"
-    echo -e "${PLAIN}3. 📊 在'入站列表'中配置代理协议${PLAIN}"
-    echo -e "${PLAIN}4. 🔌 通过API进行自动化管理${PLAIN}"
-    echo ""
-    echo -e "${BLUE}📚 API文档: https://github.com/WCOJBK/x-ui-api-main/blob/main/COMPLETE_API_DOCUMENTATION.md${PLAIN}"
     
 else
     echo -e "${RED}❌ 服务启动失败${PLAIN}"
@@ -240,5 +248,6 @@ echo -e "${BLUE}🧹 清理临时文件...${PLAIN}"
 cd / && rm -rf /tmp/x-ui-api-main
 
 echo ""
-echo -e "${GREEN}🎯 安装完成！Enhanced API (49个端点) 已就绪！${PLAIN}"
+echo -e "${GREEN}🎯 安装完成！现在可以访问 http://${SERVER_IP}:2053/ 开始使用！${PLAIN}"
+echo -e "${BLUE}📖 完整API文档: https://github.com/WCOJBK/x-ui-api-main/blob/main/COMPLETE_API_DOCUMENTATION.md${PLAIN}"
 echo ""

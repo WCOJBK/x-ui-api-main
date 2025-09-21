@@ -34,6 +34,7 @@ replace (
 	google.golang.org/grpc => google.golang.org/grpc v1.60.1
 	golang.org/x/exp => golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 	golang.org/x/tools => golang.org/x/tools v0.15.0
+	golang.org/x/mod => golang.org/x/mod v0.14.0
 )
 
 require (
