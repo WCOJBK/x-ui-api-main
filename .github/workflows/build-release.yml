@@ -125,7 +125,7 @@ jobs:
         zip -r ../x-ui-enhanced-windows-amd64.zip x-ui-windows.exe web/ VERSION DEPLOY.md 2>/dev/null || zip -r ../x-ui-enhanced-windows-amd64.zip x-ui-windows.exe VERSION DEPLOY.md
     
     - name: Upload Linux artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: x-ui-enhanced-linux-amd64
         path: |
@@ -134,7 +134,7 @@ jobs:
           release/VERSION
     
     - name: Upload Windows artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: x-ui-enhanced-windows-amd64
         path: |
@@ -148,7 +148,7 @@ jobs:
     
     - name: Create Release
       if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: build-${{ steps.vars.outputs.short_sha }}
         name: Enhanced API Build ${{ steps.vars.outputs.short_sha }}
@@ -157,7 +157,7 @@ jobs:
           
           **Build Info:**
           - Commit: ${{ github.sha }}
-          - Date: $(date)
+          - Build Date: ${{ github.run_number }}
           - Go Version: 1.23.4
           
           **Downloads:**
@@ -179,5 +179,6 @@ jobs:
           x-ui-enhanced-windows-amd64.zip
         draft: false
         prerelease: false
+        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
