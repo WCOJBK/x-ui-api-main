@@ -17,9 +17,21 @@ require (
 	github.com/xtls/xray-core v1.8.24
 	go.uber.org/atomic v1.11.0
 	golang.org/x/text v0.21.0
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.60.1
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
+)
+
+replace (
+	github.com/gorilla/sessions => github.com/gorilla/sessions v1.3.0
+	github.com/mymmrac/telego => github.com/mymmrac/telego v0.29.2
+	github.com/xtls/reality => github.com/xtls/reality v0.0.0-20240712055506-48f0b2a5ed6d
+	github.com/cloudflare/circl => github.com/cloudflare/circl v1.3.9
+	github.com/google/pprof => github.com/google/pprof v0.0.0-20231229205709-960ae82b1e42
+	github.com/onsi/ginkgo/v2 => github.com/onsi/ginkgo/v2 v2.12.0
+	github.com/quic-go/qpack => github.com/quic-go/qpack v0.4.0
+	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.37.6
+	google.golang.org/grpc => google.golang.org/grpc v1.60.1
 )
 
 require (
