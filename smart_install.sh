@@ -70,12 +70,14 @@ else
     go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
     go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
     go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+    go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
     
     echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
     echo -e "${GREEN}  - gorilla/sessions → v1.3.0${PLAIN}"
     echo -e "${GREEN}  - mymmrac/telego → v0.29.2${PLAIN}"
     echo -e "${GREEN}  - xtls/reality → 20240712版本${PLAIN}"
     echo -e "${GREEN}  - cloudflare/circl → v1.3.9${PLAIN}"
+    echo -e "${GREEN}  - google/pprof → 20231229版本${PLAIN}"
     
     # 重新下载依赖并编译
     go mod tidy
