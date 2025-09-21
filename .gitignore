@@ -8,156 +8,56 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go compiler:
-*.o
-*.a
-
-# Go build output
+# Output of the go build
 x-ui
-build/
-release/
-temp_build/
-dist/
+enhanced-api
 
-# Go modules
+# Dependency directories
+vendor/
+node_modules/
+
+# Go workspace file
 go.work
-go.work.sum
 
-# GoLand
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# VS Code
+# IDE
 .vscode/
-*.code-workspace
-
-# Vim
+.idea/
 *.swp
 *.swo
 
-# OS generated files
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-Desktop.ini
 
 # Logs
 *.log
-logs/
-access.log
-error.log
 
-# Database files
+# Database
 *.db
 *.sqlite
 *.sqlite3
 
-# Config files with sensitive data
-config.json
-*.env
-.env*
-
-# SSL certificates
-*.pem
-*.key
-*.crt
-*.csr
-cert/
+# Temporary files
+*.tmp
+*.temp
+/tmp/
 
 # Backup files
 *.backup
 *.bak
-*~
-*.tmp
 
-# Downloaded files
-*.zip
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tgz
+# Environment variables
+.env
+.env.local
 
-# Node.js (if any frontend assets)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Cookies and sessions
+cookies.txt
+session.txt
 
-# Python (if any python scripts)
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
+# Build artifacts
+dist/
+build/
 
 # Coverage reports
-*.cover
-*.py,cover
-.coverage
-.coverage.*
-coverage.xml
-*.lcov
-cover.out
-
-# Docker
-.dockerignore.bak
-
-# Local development
-local/
-dev/
-test/
-
-# System directories
-var/
-run/
-
-# Installation artifacts
-install_*.log
-installation.log
-
-# Temporary files created by scripts
-setup_*.tmp
-temp_*
-tmp_*
-
-# Fail2ban logs
-*.fail2ban
-
-# Generated documentation
-docs/_build/
-site/
-
-# IDE specific
-*.sublime-*
-*.atom-*
-
-# Runtime data
-pids
-*.pid
-*.seed
-
-# Archives
-artifacts/
-
-# macOS
-.AppleDouble
-.LSOverride
-
-# Windows
-*.cab
-*.msi
-*.msix
-*.msm
-.msp
-
-# Linux
-*~
-
-# Custom
-db/
-x-ui.db
+coverage.out
+coverage.html
