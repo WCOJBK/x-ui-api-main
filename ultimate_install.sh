@@ -106,7 +106,29 @@ if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
     echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
 fi
 
+# 强制刷新环境变量
+hash -r
+which go
 echo -e "${GREEN}✅ Go版本: $(go version)${PLAIN}"
+
+# 验证Go版本是否正确升级
+ACTUAL_GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
+if [[ "$ACTUAL_GO_VERSION" =~ ^1\.2[3-9] ]] || [[ "$ACTUAL_GO_VERSION" =~ ^[2-9]\. ]]; then
+    echo -e "${GREEN}✅ Go升级验证成功，版本: ${ACTUAL_GO_VERSION}${PLAIN}"
+else
+    echo -e "${RED}⚠️ Go升级可能失败，当前版本: ${ACTUAL_GO_VERSION}${PLAIN}"
+    echo -e "${YELLOW}🔄 尝试手动设置Go路径...${PLAIN}"
+    
+    # 手动设置完整路径
+    GO_BIN="/usr/local/go/bin/go"
+    if [[ -f "$GO_BIN" ]]; then
+        echo -e "${BLUE}使用完整路径: $GO_BIN${PLAIN}"
+        alias go="$GO_BIN"
+        export GO_BIN
+    else
+        echo -e "${RED}❌ Go 1.23安装失败，将使用兼容模式${PLAIN}"
+    fi
+fi
 
 # 下载源码
 echo -e "${YELLOW}📥 下载源码...${PLAIN}"
@@ -119,36 +141,54 @@ echo -e "${YELLOW}🔨 编译Enhanced API版本...${PLAIN}"
 export GOPROXY=https://goproxy.cn,direct
 export GOSUMDB=sum.golang.google.cn
 
+# 确定使用的Go命令
+GO_CMD="go"
+if [[ -n "$GO_BIN" && -f "$GO_BIN" ]]; then
+    GO_CMD="$GO_BIN"
+elif [[ -f "/usr/local/go/bin/go" ]]; then
+    GO_CMD="/usr/local/go/bin/go"
+fi
+
+echo -e "${BLUE}使用Go命令: $GO_CMD (版本: $($GO_CMD version 2>/dev/null || echo 'unknown'))${PLAIN}"
+
 echo -e "${BLUE}下载Go模块依赖...${PLAIN}"
-go mod tidy
+$GO_CMD mod tidy
 
 echo -e "${BLUE}开始编译...${PLAIN}"
-if go build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
+if $GO_CMD build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
     echo -e "${GREEN}✅ 编译成功！${PLAIN}"
 else
     echo -e "${YELLOW}⚠️ 编译失败，应用Go 1.21兼容性修复...${PLAIN}"
     
     # 应用所有兼容性修复
-    go mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
-    go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
-    go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
-    go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
-    go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
-    go mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
-    go mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
-    go mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+    $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
+    $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
+    $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
+    $GO_CMD mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+    $GO_CMD mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
+    $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
+    $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
+    $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+    
+    echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
+    echo -e "${PLAIN}  - 所有Go 1.21不兼容的依赖已替换${PLAIN}"
     
     echo -e "${BLUE}重新下载依赖...${PLAIN}"
-    go mod tidy
+    $GO_CMD mod tidy
     
     echo -e "${BLUE}兼容性模式编译...${PLAIN}"
-    go build -ldflags "-s -w" -o x-ui .
+    $GO_CMD build -ldflags "-s -w" -o x-ui .
     
     if [[ -f "./x-ui" ]]; then
         echo -e "${GREEN}✅ 兼容性模式编译成功！${PLAIN}"
     else
         echo -e "${RED}❌ 编译失败${PLAIN}"
-        exit 1
+        echo -e "${YELLOW}最后尝试：使用系统Go强制编译...${PLAIN}"
+        /usr/bin/go build -ldflags "-s -w" -o x-ui . 2>/dev/null || echo -e "${RED}❌ 所有编译尝试都失败${PLAIN}"
+        
+        if [[ ! -f "./x-ui" ]]; then
+            exit 1
+        fi
     fi
 fi
 chmod +x x-ui
