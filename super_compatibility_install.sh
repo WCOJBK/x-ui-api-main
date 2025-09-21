@@ -147,22 +147,52 @@ apply_super_compatibility_fixes() {
 # 应用超级兼容性修复
 apply_super_compatibility_fixes
 
-# 清理和重新下载依赖
-echo -e "${BLUE}🧹 清理和重新下载所有依赖...${PLAIN}"
+# 强制清理和重建依赖
+echo -e "${BLUE}🧹 强制清理所有依赖缓存...${PLAIN}"
 rm -f go.sum
+$GO_CMD clean -modcache 2>/dev/null || true
+
+echo -e "${BLUE}🔄 强制重新下载所有依赖（应用replace规则）...${PLAIN}"
+$GO_CMD mod download
 $GO_CMD mod tidy
+
+echo -e "${BLUE}🔍 验证关键依赖replace是否生效...${PLAIN}"
+echo "验证reality版本:"
+$GO_CMD list -m github.com/xtls/reality 2>/dev/null || echo "reality dependency check failed"
+echo "当前go.mod中的replace规则:"
+grep -E "replace.*reality|replace.*sessions|replace.*genproto" go.mod || echo "No reality/sessions/genproto replace found"
 
 # 编译项目
 echo -e "${YELLOW}🔨 编译Enhanced API版本 (超级兼容性模式)...${PLAIN}"
 if $GO_CMD build -ldflags "-s -w" -o x-ui . 2>&1; then
     echo -e "${GREEN}✅ 编译成功！${PLAIN}"
 else
-    echo -e "${RED}❌ 编译失败，启用详细错误模式...${PLAIN}"
-    echo -e "${BLUE}📋 详细编译错误信息：${PLAIN}"
-    $GO_CMD build -ldflags "-s -w" -o x-ui . 
-    echo -e "${RED}❌ 超级兼容性模式编译失败${PLAIN}"
-    echo -e "${YELLOW}💡 建议: 可能需要Docker化解决方案或预编译二进制${PLAIN}"
-    exit 1
+    echo -e "${RED}❌ 首次编译失败，重新应用所有兼容性修复...${PLAIN}"
+    
+    # 重新应用所有修复（更强制性）
+    echo -e "${YELLOW}🔧 重新强制应用所有replace规则...${PLAIN}"
+    apply_super_compatibility_fixes
+    
+    echo -e "${BLUE}🧹 再次清理和重建...${PLAIN}"
+    rm -f go.sum
+    $GO_CMD mod tidy
+    
+    echo -e "${BLUE}📋 显示最终的replace规则状态：${PLAIN}"
+    echo "========== go.mod replace 规则 =========="
+    grep "replace" go.mod 2>/dev/null | head -10
+    echo "========================================"
+    
+    echo -e "${BLUE}🔨 重新尝试编译...${PLAIN}"
+    if $GO_CMD build -ldflags "-s -w" -o x-ui . 2>&1; then
+        echo -e "${GREEN}✅ 第二次编译成功！${PLAIN}"
+    else
+        echo -e "${RED}❌ 编译失败，启用详细错误模式...${PLAIN}"
+        echo -e "${BLUE}📋 详细编译错误信息：${PLAIN}"
+        $GO_CMD build -ldflags "-s -w" -o x-ui . 
+        echo -e "${RED}❌ 超级兼容性模式编译失败${PLAIN}"
+        echo -e "${YELLOW}💡 建议: 可能需要Docker化解决方案或预编译二进制${PLAIN}"
+        exit 1
+    fi
 fi
 
 # 停止现有服务
