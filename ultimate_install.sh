@@ -36,31 +36,68 @@ else
     exit 1
 fi
 
-# 直接升级Go到1.23
+# 使用中国镜像升级Go到1.23
 echo -e "${YELLOW}🚀 升级Go到1.23 (解决所有依赖版本问题)...${PLAIN}"
 cd /tmp
 
 # 检查是否已经是Go 1.23+
+GO_NEED_UPGRADE=true
 if command -v go &> /dev/null; then
     CURRENT_GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
     if [[ "$CURRENT_GO_VERSION" =~ ^1\.2[3-9] ]] || [[ "$CURRENT_GO_VERSION" =~ ^[2-9]\. ]]; then
         echo -e "${GREEN}✅ 已有Go ${CURRENT_GO_VERSION}，跳过升级${PLAIN}"
+        GO_NEED_UPGRADE=false
     else
         echo -e "${BLUE}当前Go版本: ${CURRENT_GO_VERSION}，正在升级...${PLAIN}"
-        # 下载并安装Go 1.23
-        wget -q https://golang.org/dl/go1.23.0.linux-amd64.tar.gz
+    fi
+else
+    echo -e "${BLUE}未检测到Go，正在安装Go 1.23...${PLAIN}"
+fi
+
+if [ "$GO_NEED_UPGRADE" = true ]; then
+    echo -e "${BLUE}使用中国镜像加速下载...${PLAIN}"
+    
+    # 尝试多个中国镜像源下载Go
+    DOWNLOAD_SUCCESS=false
+    
+    # 镜像源列表
+    mirrors=(
+        "https://studygolang.com/dl/golang/go1.23.0.linux-amd64.tar.gz"
+        "https://golang.google.cn/dl/go1.23.0.linux-amd64.tar.gz"
+        "https://mirrors.aliyun.com/golang/go1.23.0.linux-amd64.tar.gz"
+        "https://mirrors.ustc.edu.cn/golang/go1.23.0.linux-amd64.tar.gz"
+        "https://go.dev/dl/go1.23.0.linux-amd64.tar.gz"
+    )
+    
+    for mirror in "${mirrors[@]}"; do
+        echo -e "${BLUE}🔗 尝试镜像: $(echo $mirror | cut -d'/' -f3)${PLAIN}"
+        if wget --timeout=30 --tries=2 -q "$mirror" -O go1.23.0.linux-amd64.tar.gz; then
+            echo -e "${GREEN}✅ 下载成功${PLAIN}"
+            DOWNLOAD_SUCCESS=true
+            break
+        else
+            echo -e "${YELLOW}⚠️ 镜像失败，尝试下一个...${PLAIN}"
+            rm -f go1.23.0.linux-amd64.tar.gz
+        fi
+    done
+    
+    if [ "$DOWNLOAD_SUCCESS" = true ] && [ -f "go1.23.0.linux-amd64.tar.gz" ]; then
+        # 安装下载的Go 1.23
+        echo -e "${BLUE}🔧 安装Go 1.23...${PLAIN}"
         rm -rf /usr/local/go
         tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
         rm -f go1.23.0.linux-amd64.tar.gz
         echo -e "${GREEN}✅ Go升级完成${PLAIN}"
+    else
+        # 所有镜像都失败，使用系统包管理器安装Go
+        echo -e "${YELLOW}⚠️ 所有镜像下载失败，使用系统包管理器安装Go...${PLAIN}"
+        if command -v apt &> /dev/null; then
+            apt install -y golang-go >/dev/null 2>&1
+        elif command -v yum &> /dev/null; then
+            yum install -y golang >/dev/null 2>&1
+        fi
+        echo -e "${YELLOW}📌 使用系统Go版本 (可能需要手动处理依赖兼容)${PLAIN}"
     fi
-else
-    echo -e "${BLUE}未检测到Go，正在安装Go 1.23...${PLAIN}"
-    wget -q https://golang.org/dl/go1.23.0.linux-amd64.tar.gz
-    rm -rf /usr/local/go
-    tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
-    rm -f go1.23.0.linux-amd64.tar.gz
-    echo -e "${GREEN}✅ Go安装完成${PLAIN}"
 fi
 
 # 设置Go环境变量
@@ -86,14 +123,34 @@ echo -e "${BLUE}下载Go模块依赖...${PLAIN}"
 go mod tidy
 
 echo -e "${BLUE}开始编译...${PLAIN}"
-go build -ldflags "-s -w" -o x-ui .
-
-if [[ ! -f "./x-ui" ]]; then
-    echo -e "${RED}❌ 编译失败${PLAIN}"
-    exit 1
+if go build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
+    echo -e "${GREEN}✅ 编译成功！${PLAIN}"
+else
+    echo -e "${YELLOW}⚠️ 编译失败，应用Go 1.21兼容性修复...${PLAIN}"
+    
+    # 应用所有兼容性修复
+    go mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
+    go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
+    go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
+    go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+    go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
+    go mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
+    go mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
+    go mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+    
+    echo -e "${BLUE}重新下载依赖...${PLAIN}"
+    go mod tidy
+    
+    echo -e "${BLUE}兼容性模式编译...${PLAIN}"
+    go build -ldflags "-s -w" -o x-ui .
+    
+    if [[ -f "./x-ui" ]]; then
+        echo -e "${GREEN}✅ 兼容性模式编译成功！${PLAIN}"
+    else
+        echo -e "${RED}❌ 编译失败${PLAIN}"
+        exit 1
+    fi
 fi
-
-echo -e "${GREEN}✅ 编译成功！${PLAIN}"
 chmod +x x-ui
 
 # 安装服务
