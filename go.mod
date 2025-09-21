@@ -32,6 +32,8 @@ replace (
 	github.com/quic-go/qpack => github.com/quic-go/qpack v0.4.0
 	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.37.6
 	google.golang.org/grpc => google.golang.org/grpc v1.60.1
+	golang.org/x/exp => golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
+	golang.org/x/tools => golang.org/x/tools v0.15.0
 )
 
 require (
