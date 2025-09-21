@@ -46,63 +46,40 @@ rm -rf x-ui-api-main
 git clone https://github.com/WCOJBK/x-ui-api-main.git
 cd x-ui-api-main
 
-# 智能编译 - 自动处理依赖版本问题
+# 智能编译 - 预先应用依赖兼容修复后再编译
 echo -e "${YELLOW}🔨 智能编译...${PLAIN}"
 export GOPROXY=https://goproxy.cn,direct
 export GOSUMDB=sum.golang.google.cn
 
-# 第一次尝试编译
-echo -e "${BLUE}尝试编译...${PLAIN}"
+echo -e "${BLUE}应用Go 1.21兼容性修复...${PLAIN}"
+# 统一将可能不兼容的依赖替换为已知兼容版本（避免首次编译失败）
+go mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
+go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
+go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
+go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
+go mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
+
+echo -e "${BLUE}下载模块依赖...${PLAIN}"
 go mod tidy
-if go build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
+
+echo -e "${BLUE}开始编译...${PLAIN}"
+if go build -ldflags "-s -w" -o x-ui .; then
     echo -e "${GREEN}✅ 编译成功！${PLAIN}"
 else
-    echo -e "${YELLOW}⚠️ 检测到Go版本兼容问题，自动修复中...${PLAIN}"
-    
-    # 自动修复常见的版本兼容问题
-    echo -e "${BLUE}修复依赖版本...${PLAIN}"
-    
-    # 自动修复所有已知的Go版本兼容问题
-    echo -e "${BLUE}正在修复所有已知的版本兼容问题...${PLAIN}"
-    
-    # 修复各种高版本依赖到Go 1.21兼容版本
-    go mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
-    go mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
-    go mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
-    go mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
-    go mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
-    go mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
-    
-    echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
-    echo -e "${GREEN}  - gorilla/sessions → v1.3.0${PLAIN}"
-    echo -e "${GREEN}  - mymmrac/telego → v0.29.2${PLAIN}"
-    echo -e "${GREEN}  - xtls/reality → 20240712版本${PLAIN}"
-    echo -e "${GREEN}  - cloudflare/circl → v1.3.9${PLAIN}"
-    echo -e "${GREEN}  - onsi/ginkgo v2 → v2.12.0${PLAIN}"
-    echo -e "${GREEN}  - google/pprof → 20231229版本${PLAIN}"
-    
-    # 重新下载依赖并编译
+    echo -e "${YELLOW}⚠️ 编译失败，尝试自动升级Go到1.23并重试...${PLAIN}"
+
+    cd /tmp
+    wget -q https://golang.org/dl/go1.23.0.linux-amd64.tar.gz
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
+    export PATH=/usr/local/go/bin:$PATH
+    echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
+
+    cd x-ui-api-main
     go mod tidy
-    echo -e "${BLUE}重新编译...${PLAIN}"
-    if go build -ldflags "-s -w" -o x-ui .; then
-        echo -e "${GREEN}✅ 修复后编译成功！${PLAIN}"
-    else
-        echo -e "${RED}❌ 编译失败，可能需要升级Go版本${PLAIN}"
-        echo -e "${YELLOW}正在自动升级Go到1.23...${PLAIN}"
-        
-        # 升级Go版本作为最后手段
-        cd /tmp
-        wget -q https://golang.org/dl/go1.23.0.linux-amd64.tar.gz
-        rm -rf /usr/local/go
-        tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
-        export PATH=/usr/local/go/bin:$PATH
-        echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
-        
-        cd x-ui-api-main
-        go mod tidy
-        go build -ldflags "-s -w" -o x-ui .
-        echo -e "${GREEN}✅ Go升级后编译成功！${PLAIN}"
-    fi
+    go build -ldflags "-s -w" -o x-ui .
+    echo -e "${GREEN}✅ Go升级后编译成功！${PLAIN}"
 fi
 
 # 检查编译结果
