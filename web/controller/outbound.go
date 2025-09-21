@@ -19,8 +19,7 @@ func NewOutboundController(g *gin.RouterGroup) *OutboundController {
 }
 
 func (a *OutboundController) initRouter(g *gin.RouterGroup) {
-	g = g.Group("/outbound")
-
+	// Routes are handled directly on the group (no additional sub-group needed)
 	g.POST("/list", a.getOutbounds)
 	g.POST("/add", a.addOutbound)
 	g.POST("/del/:tag", a.delOutbound)

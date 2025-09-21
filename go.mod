@@ -7,7 +7,7 @@ require (
 	github.com/gin-contrib/sessions v1.0.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/goccy/go-json v0.10.5
-	github.com/mymmrac/telego v0.29.2
+	github.com/mymmrac/telego v0.32.0
 	github.com/nicksnyder/go-i18n/v2 v2.5.1
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pelletier/go-toml/v2 v2.2.3
@@ -17,31 +17,16 @@ require (
 	github.com/xtls/xray-core v1.8.24
 	go.uber.org/atomic v1.11.0
 	golang.org/x/text v0.21.0
-	google.golang.org/grpc v1.60.1
+	google.golang.org/grpc v1.70.0
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
-)
-
-replace (
-	github.com/gorilla/sessions => github.com/gorilla/sessions v1.3.0
-	github.com/mymmrac/telego => github.com/mymmrac/telego v0.29.2
-	github.com/xtls/reality => github.com/xtls/reality v0.0.0-20240429224917-ecc4401070ca
-	github.com/cloudflare/circl => github.com/cloudflare/circl v1.3.9
-	github.com/google/pprof => github.com/google/pprof v0.0.0-20231229205709-960ae82b1e42
-	github.com/onsi/ginkgo/v2 => github.com/onsi/ginkgo/v2 v2.12.0
-	github.com/quic-go/qpack => github.com/quic-go/qpack v0.4.0
-	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.37.6
-	google.golang.org/grpc => google.golang.org/grpc v1.60.1
-	golang.org/x/exp => golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
-	golang.org/x/tools => golang.org/x/tools v0.15.0
-	golang.org/x/mod => golang.org/x/mod v0.14.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bytedance/sonic v1.12.8 // indirect
 	github.com/bytedance/sonic/loader v0.2.3 // indirect
-	github.com/cloudflare/circl v1.3.9 // indirect
+	github.com/cloudflare/circl v1.5.0 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/dgryski/go-metro v0.0.0-20250106013310-edb8663e5e33 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
@@ -54,10 +39,10 @@ require (
 	github.com/go-playground/validator/v10 v10.24.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/pprof v0.0.0-20231229205709-960ae82b1e42 // indirect
+	github.com/google/pprof v0.0.0-20250202011525-fc3143867406 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/gorilla/sessions v1.3.0 // indirect
+	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grbit/go-json v0.11.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -93,7 +78,7 @@ require (
 	github.com/valyala/fastjson v1.6.4 // indirect
 	github.com/vishvananda/netlink v1.3.0 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
-	github.com/xtls/reality v0.0.0-20240712055506-48f0b2a5ed6d // indirect
+	github.com/xtls/reality v0.0.0-20240909153216-e26ae2305463 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect

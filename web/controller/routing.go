@@ -19,8 +19,7 @@ func NewRoutingController(g *gin.RouterGroup) *RoutingController {
 }
 
 func (a *RoutingController) initRouter(g *gin.RouterGroup) {
-	g = g.Group("/routing")
-
+	// Routes are handled directly on the group (no additional sub-group needed)
 	g.POST("/get", a.getRouting)
 	g.POST("/update", a.updateRouting)
 	g.POST("/rule/add", a.addRule)

@@ -18,8 +18,7 @@ func NewSubscriptionController(g *gin.RouterGroup) *SubscriptionController {
 }
 
 func (a *SubscriptionController) initRouter(g *gin.RouterGroup) {
-	g = g.Group("/sub")
-
+	// Routes are handled directly on the group (no additional sub-group needed)
 	g.POST("/settings/get", a.getSubSettings)
 	g.POST("/settings/update", a.updateSubSettings)
 	g.POST("/enable", a.enableSubscription)
