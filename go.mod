@@ -25,7 +25,7 @@ require (
 replace (
 	github.com/gorilla/sessions => github.com/gorilla/sessions v1.3.0
 	github.com/mymmrac/telego => github.com/mymmrac/telego v0.29.2
-	github.com/xtls/reality => github.com/xtls/reality v0.0.0-20240712055506-48f0b2a5ed6d
+	github.com/xtls/reality => github.com/xtls/reality v0.0.0-20240429224917-ecc4401070ca
 	github.com/cloudflare/circl => github.com/cloudflare/circl v1.3.9
 	github.com/google/pprof => github.com/google/pprof v0.0.0-20231229205709-960ae82b1e42
 	github.com/onsi/ginkgo/v2 => github.com/onsi/ginkgo/v2 v2.12.0
