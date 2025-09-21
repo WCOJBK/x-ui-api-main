@@ -196,12 +196,12 @@ get_latest_release() {
     
     if [[ "$VERSION" == "latest" ]]; then
         # Try to get latest release from GitHub API
-        LATEST_VERSION=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+        LATEST_VERSION=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' 2>/dev/null || echo "")
         
         if [[ -z "$LATEST_VERSION" ]]; then
-            # Fallback to a known version
-            LATEST_VERSION="v2.5.2"
-            warn "无法获取最新版本，使用默认版本 / Unable to get latest version, using default version: $LATEST_VERSION"
+            # Fallback: try to get from MHSanaei/3x-ui (original repo)
+            LATEST_VERSION=$(curl -fsSL "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' 2>/dev/null || echo "v2.5.2")
+            warn "无法从当前仓库获取版本，使用原版仓库版本 / Unable to get version from current repo, using original repo version: $LATEST_VERSION"
         fi
         
         VERSION="$LATEST_VERSION"
@@ -215,7 +215,9 @@ download_install() {
     info "下载并安装 3x-ui... / Downloading and installing 3x-ui..."
     
     local package_name="x-ui-linux-${ARCH}"
+    # Try our repo first, fallback to original repo
     local download_url="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/${package_name}.tar.gz"
+    local fallback_url="https://github.com/MHSanaei/3x-ui/releases/download/${VERSION}/${package_name}.tar.gz"
     
     # Create temporary directory
     local tmp_dir=$(mktemp -d)
@@ -225,10 +227,17 @@ download_install() {
     info "下载安装包... / Downloading package..."
     debug "下载地址 / Download URL: $download_url"
     
-    if ! wget --no-check-certificate -O "${package_name}.tar.gz" "$download_url"; then
-        error "下载失败 / Download failed"
-        error "请检查网络连接和版本号 / Please check network connection and version number"
-        exit 1
+    if ! wget --no-check-certificate -O "${package_name}.tar.gz" "$download_url" 2>/dev/null; then
+        warn "从主仓库下载失败，尝试原版仓库... / Failed to download from main repo, trying original repo..."
+        debug "备用下载地址 / Fallback URL: $fallback_url"
+        
+        if ! wget --no-check-certificate -O "${package_name}.tar.gz" "$fallback_url"; then
+            error "下载失败 / Download failed"
+            error "请检查网络连接和版本号 / Please check network connection and version number"
+            exit 1
+        fi
+        
+        info "从原版仓库下载成功 / Successfully downloaded from original repo"
     fi
     
     # Extract package
