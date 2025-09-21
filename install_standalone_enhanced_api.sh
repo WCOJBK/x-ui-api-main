@@ -20,6 +20,7 @@ API_PORT=8080
 XUI_PORT=""
 API_DIR="/opt/x-ui-enhanced-api"
 SERVICE_NAME="x-ui-enhanced-api"
+GO_BIN="$(command -v go || echo /usr/local/go/bin/go)"
 
 # 日志函数
 log_info() {
@@ -159,6 +160,8 @@ install_go() {
     if command -v go &> /dev/null; then
         GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
         log_success "检测到Go环境: $GO_VERSION"
+        # 统一go可执行路径
+        GO_BIN="$(command -v go)"
         return 0
     fi
     
@@ -198,6 +201,8 @@ install_go() {
     rm -f "$GO_FILE"
     
     log_success "Go环境安装完成: $(go version)"
+    # 统一go可执行路径
+    GO_BIN="/usr/local/go/bin/go"
 }
 
 # 创建增强API服务
@@ -750,21 +755,31 @@ compile_service() {
     # 设置Go代理
     export GOPROXY=https://goproxy.io,direct
     export GO111MODULE=on
-    export PATH=$PATH:/usr/local/go/bin
+    # 确保GO_BIN有效
+    if [[ ! -x "$GO_BIN" ]]; then
+        if command -v go &>/dev/null; then
+            GO_BIN="$(command -v go)"
+        elif [[ -x "/usr/local/go/bin/go" ]]; then
+            GO_BIN="/usr/local/go/bin/go"
+        else
+            log_error "未找到go可执行文件，请检查Go环境安装"
+            exit 1
+        fi
+    fi
     
     # 下载依赖
-    if ! /usr/local/go/bin/go mod tidy; then
+    if ! "$GO_BIN" mod tidy; then
         log_error "下载依赖失败"
         exit 1
     fi
     
-    if ! /usr/local/go/bin/go mod download; then
+    if ! "$GO_BIN" mod download; then
         log_error "下载模块失败"
         exit 1
     fi
     
     # 编译
-    if ! /usr/local/go/bin/go build -ldflags="-s -w" -o $SERVICE_NAME main.go; then
+    if ! "$GO_BIN" build -ldflags="-s -w" -o $SERVICE_NAME main.go; then
         log_error "编译失败"
         exit 1
     fi
