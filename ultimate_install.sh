@@ -187,6 +187,7 @@ if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
     $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
     $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+    $GO_CMD mod edit -replace=github.com/rogpeppe/go-internal=github.com/rogpeppe/go-internal@v1.12.0
     
     echo -e "${BLUE}  🔧 修复golang.org/x依赖...${PLAIN}"
     $GO_CMD mod edit -replace=golang.org/x/exp=golang.org/x/exp@v0.0.0-20231219180239-dc181d75b848
@@ -236,6 +237,7 @@ else
         $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
         $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
         $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+        $GO_CMD mod edit -replace=github.com/rogpeppe/go-internal=github.com/rogpeppe/go-internal@v1.12.0
         
         # golang.org/x依赖修复
         $GO_CMD mod edit -replace=golang.org/x/exp=golang.org/x/exp@v0.0.0-20231219180239-dc181d75b848
