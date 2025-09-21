@@ -177,7 +177,8 @@ fi
 if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     echo -e "${YELLOW}🔧 应用Go 1.21兼容性修复...${PLAIN}"
     
-    # 应用所有兼容性修复
+    # 应用所有兼容性修复 - Go 1.21.6 兼容版本
+    echo -e "${BLUE}  🔧 修复github.com依赖...${PLAIN}"
     $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
     $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
     $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
@@ -186,6 +187,18 @@ if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
     $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
     $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+    
+    echo -e "${BLUE}  🔧 修复golang.org/x依赖...${PLAIN}"
+    $GO_CMD mod edit -replace=golang.org/x/exp=golang.org/x/exp@v0.0.0-20231219180239-dc181d75b848
+    $GO_CMD mod edit -replace=golang.org/x/crypto=golang.org/x/crypto@v0.17.0
+    $GO_CMD mod edit -replace=golang.org/x/net=golang.org/x/net@v0.19.0
+    $GO_CMD mod edit -replace=golang.org/x/sys=golang.org/x/sys@v0.15.0
+    $GO_CMD mod edit -replace=golang.org/x/text=golang.org/x/text@v0.14.0
+    $GO_CMD mod edit -replace=golang.org/x/tools=golang.org/x/tools@v0.16.0
+    
+    echo -e "${BLUE}  🔧 修复其他关键依赖...${PLAIN}"
+    $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
+    $GO_CMD mod edit -replace=google.golang.org/protobuf=google.golang.org/protobuf@v1.31.0
     
     echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
     echo -e "${PLAIN}  - 所有Go 1.21不兼容的依赖已替换为兼容版本${PLAIN}"
@@ -210,6 +223,8 @@ else
     # 如果之前没有应用兼容性修复，现在应用
     if [ "$USE_COMPATIBILITY_MODE" = false ]; then
         echo -e "${YELLOW}🔧 强制应用兼容性修复...${PLAIN}"
+        
+        # GitHub依赖修复
         $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
         $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
         $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
@@ -218,6 +233,18 @@ else
         $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
         $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
         $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+        
+        # golang.org/x依赖修复
+        $GO_CMD mod edit -replace=golang.org/x/exp=golang.org/x/exp@v0.0.0-20231219180239-dc181d75b848
+        $GO_CMD mod edit -replace=golang.org/x/crypto=golang.org/x/crypto@v0.17.0
+        $GO_CMD mod edit -replace=golang.org/x/net=golang.org/x/net@v0.19.0
+        $GO_CMD mod edit -replace=golang.org/x/sys=golang.org/x/sys@v0.15.0
+        $GO_CMD mod edit -replace=golang.org/x/text=golang.org/x/text@v0.14.0
+        $GO_CMD mod edit -replace=golang.org/x/tools=golang.org/x/tools@v0.16.0
+        
+        # 其他关键依赖修复
+        $GO_CMD mod edit -replace=google.golang.org/grpc=google.golang.org/grpc@v1.58.3
+        $GO_CMD mod edit -replace=google.golang.org/protobuf=google.golang.org/protobuf@v1.31.0
         
         $GO_CMD mod tidy
         echo -e "${BLUE}重新尝试编译...${PLAIN}"
