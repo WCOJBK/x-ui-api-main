@@ -181,7 +181,8 @@ if [ "$USE_COMPATIBILITY_MODE" = true ]; then
     echo -e "${BLUE}  🔧 修复github.com依赖...${PLAIN}"
     $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
     $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
-    $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20231112171332-de1590cf6c40
+    # Skip reality replacement - use original version from go.mod
+    # $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20231112171332-de1590cf6c40
     $GO_CMD mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
     $GO_CMD mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
     $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
@@ -233,7 +234,8 @@ else
         # GitHub依赖修复
         $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
         $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
-        $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20231112171332-de1590cf6c40
+        # Skip reality replacement - use original version from go.mod
+    # $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20231112171332-de1590cf6c40
         $GO_CMD mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
         $GO_CMD mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
         $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
