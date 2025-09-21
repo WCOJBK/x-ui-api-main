@@ -87,8 +87,23 @@ if [ "$GO_NEED_UPGRADE" = true ]; then
         rm -rf /usr/local/go
         tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
         rm -f go1.23.0.linux-amd64.tar.gz
-        echo -e "${GREEN}✅ Go升级完成${PLAIN}"
-    else
+        
+        # 验证安装是否成功
+        if [[ -f "/usr/local/go/bin/go" ]]; then
+            GO_INSTALLED_VERSION=$(/usr/local/go/bin/go version 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//' || echo "")
+            if [[ "$GO_INSTALLED_VERSION" =~ ^1\.2[3-9] ]] || [[ "$GO_INSTALLED_VERSION" =~ ^[2-9]\. ]]; then
+                echo -e "${GREEN}✅ Go 1.23 安装成功，版本: ${GO_INSTALLED_VERSION}${PLAIN}"
+            else
+                echo -e "${RED}❌ Go 1.23 安装失败，检测到版本: ${GO_INSTALLED_VERSION}${PLAIN}"
+                DOWNLOAD_SUCCESS=false
+            fi
+        else
+            echo -e "${RED}❌ Go 1.23 安装失败，/usr/local/go/bin/go 不存在${PLAIN}"
+            DOWNLOAD_SUCCESS=false
+        fi
+    fi
+    
+    if [ "$DOWNLOAD_SUCCESS" = false ]; then
         # 所有镜像都失败，使用系统包管理器安装Go
         echo -e "${YELLOW}⚠️ 所有镜像下载失败，使用系统包管理器安装Go...${PLAIN}"
         if command -v apt &> /dev/null; then
@@ -149,16 +164,18 @@ elif [[ -f "/usr/local/go/bin/go" ]]; then
     GO_CMD="/usr/local/go/bin/go"
 fi
 
-echo -e "${BLUE}使用Go命令: $GO_CMD (版本: $($GO_CMD version 2>/dev/null || echo 'unknown'))${PLAIN}"
+DETECTED_GO_VERSION=$($GO_CMD version 2>/dev/null | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//' || echo "")
+echo -e "${BLUE}使用Go命令: $GO_CMD (版本: ${DETECTED_GO_VERSION})${PLAIN}"
 
-echo -e "${BLUE}下载Go模块依赖...${PLAIN}"
-$GO_CMD mod tidy
+# 检测Go版本并决定编译策略
+USE_COMPATIBILITY_MODE=false
+if [[ ! "$DETECTED_GO_VERSION" =~ ^1\.2[3-9] ]] && [[ ! "$DETECTED_GO_VERSION" =~ ^[2-9]\. ]]; then
+    echo -e "${YELLOW}⚠️ 检测到Go版本${DETECTED_GO_VERSION} < 1.23，将使用兼容性模式${PLAIN}"
+    USE_COMPATIBILITY_MODE=true
+fi
 
-echo -e "${BLUE}开始编译...${PLAIN}"
-if $GO_CMD build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
-    echo -e "${GREEN}✅ 编译成功！${PLAIN}"
-else
-    echo -e "${YELLOW}⚠️ 编译失败，应用Go 1.21兼容性修复...${PLAIN}"
+if [ "$USE_COMPATIBILITY_MODE" = true ]; then
+    echo -e "${YELLOW}🔧 应用Go 1.21兼容性修复...${PLAIN}"
     
     # 应用所有兼容性修复
     $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
@@ -171,12 +188,40 @@ else
     $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
     
     echo -e "${GREEN}✅ 已应用兼容性修复:${PLAIN}"
-    echo -e "${PLAIN}  - 所有Go 1.21不兼容的依赖已替换${PLAIN}"
+    echo -e "${PLAIN}  - 所有Go 1.21不兼容的依赖已替换为兼容版本${PLAIN}"
     
-    echo -e "${BLUE}重新下载依赖...${PLAIN}"
+    echo -e "${BLUE}下载兼容性依赖...${PLAIN}"
     $GO_CMD mod tidy
     
     echo -e "${BLUE}兼容性模式编译...${PLAIN}"
+else
+    echo -e "${BLUE}下载Go模块依赖...${PLAIN}"
+    $GO_CMD mod tidy
+    
+    echo -e "${BLUE}Go 1.23+ 标准模式编译...${PLAIN}"
+fi
+
+# 尝试编译
+if $GO_CMD build -ldflags "-s -w" -o x-ui . 2>/dev/null; then
+    echo -e "${GREEN}✅ 编译成功！${PLAIN}"
+else
+    echo -e "${RED}❌ 编译失败，尝试兼容性修复...${PLAIN}"
+    
+    # 如果之前没有应用兼容性修复，现在应用
+    if [ "$USE_COMPATIBILITY_MODE" = false ]; then
+        echo -e "${YELLOW}🔧 强制应用兼容性修复...${PLAIN}"
+        $GO_CMD mod edit -replace=github.com/gorilla/sessions=github.com/gorilla/sessions@v1.3.0
+        $GO_CMD mod edit -replace=github.com/mymmrac/telego=github.com/mymmrac/telego@v0.29.2
+        $GO_CMD mod edit -replace=github.com/xtls/reality=github.com/xtls/reality@v0.0.0-20240712055506-48f0b2a5ed6d
+        $GO_CMD mod edit -replace=github.com/cloudflare/circl=github.com/cloudflare/circl@v1.3.9
+        $GO_CMD mod edit -replace=github.com/google/pprof=github.com/google/pprof@v0.0.0-20231229205709-960ae82b1e42
+        $GO_CMD mod edit -replace=github.com/onsi/ginkgo/v2=github.com/onsi/ginkgo/v2@v2.12.0
+        $GO_CMD mod edit -replace=github.com/quic-go/qpack=github.com/quic-go/qpack@v0.4.0
+        $GO_CMD mod edit -replace=github.com/quic-go/quic-go=github.com/quic-go/quic-go@v0.37.6
+        
+        $GO_CMD mod tidy
+        echo -e "${BLUE}重新尝试编译...${PLAIN}"
+    fi
     $GO_CMD build -ldflags "-s -w" -o x-ui .
     
     if [[ -f "./x-ui" ]]; then
