@@ -95,6 +95,8 @@ class InboundPane(QWidget):
 		btn_layout.addWidget(self.template_btn)
 		self.manual_btn = QPushButton("✏️ 手动填入密钥")
 		btn_layout.addWidget(self.manual_btn)
+		self.debug_btn = QPushButton("🔍 调试xray")
+		btn_layout.addWidget(self.debug_btn)
 		btn_layout.addWidget(self.copy_btn)
 		layout.addLayout(btn_layout)
 		layout.addWidget(self.create_btn)
@@ -151,6 +153,7 @@ class MainWindow(QWidget):
 		self.inbound_pane.server_gen_btn.clicked.connect(self.server_gen_reality_keys)
 		self.inbound_pane.template_btn.clicked.connect(self.use_template_keys)
 		self.inbound_pane.manual_btn.clicked.connect(self.manual_input_keys)
+		self.inbound_pane.debug_btn.clicked.connect(self.debug_xray_environment)
 		self.inbound_pane.copy_btn.clicked.connect(self.copy_vless_link)
 		self.inbound_pane.refresh_btn.clicked.connect(self.refresh_uuid_email)
 		self.inbound_pane.verify_btn.clicked.connect(self.verify_latest_inbound)
@@ -672,6 +675,48 @@ class MainWindow(QWidget):
 						except Exception as e:
 							self.log(f"❌ 计算公钥失败: {e}")
 					break
+
+	def debug_xray_environment(self) -> None:
+		"""调试服务器xray环境"""
+		if not self.enh:
+			QMessageBox.warning(self, "提示", "请先连接增强API")
+			return
+		
+		try:
+			self.log("🔍 开始调试服务器xray环境...")
+			
+			# 调用强力搜索API
+			resp = self.enh.session.get(f"{self.enh.base_url}/panel/api/enhanced/tools/find-xray")
+			if resp.ok:
+				data = resp.json()
+				if data.get("success"):
+					debug_data = data.get("data", {})
+					all_paths = debug_data.get("allFoundPaths", [])
+					valid_paths = debug_data.get("validPaths", [])
+					
+					self.log(f"📋 全面搜索结果:")
+					self.log(f"   找到的所有xray文件: {len(all_paths)}个")
+					for path in all_paths:
+						self.log(f"     - {path}")
+					
+					self.log(f"📋 可用的xray路径: {len(valid_paths)}个")
+					for path_info in valid_paths:
+						path = path_info.get("path", "")
+						version = path_info.get("version", "")
+						accessible = path_info.get("accessible", False)
+						self.log(f"     - {path} ({version}) - {'可用' if accessible else '不可用'}")
+					
+					if len(valid_paths) > 0:
+						self.log("✅ 找到可用的xray，服务器应该能生成密钥")
+					else:
+						self.log("❌ 未找到可用的xray，建议手动安装")
+				else:
+					self.log(f"❌ 搜索失败: {data.get('msg', '未知错误')}")
+			else:
+				self.log(f"❌ 调用搜索API失败: {resp.status_code}")
+				
+		except Exception as e:
+			self.log(f"❌ 调试异常: {e}")
 
 	def export_logs(self) -> None:
 		path, _ = QFileDialog.getSaveFileName(self, "导出日志", "xui-enhanced-log.txt", "Text Files (*.txt)")

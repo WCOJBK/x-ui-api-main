@@ -656,8 +656,11 @@ func generateRealityKeys(c *gin.Context) {
     // 查找xray可执行文件
     xrayPaths := []string{
         "/usr/local/x-ui/bin/xray",
+        "/usr/local/x-ui/xray",
         "/usr/local/bin/xray", 
         "/usr/bin/xray",
+        "/opt/3x-ui/bin/xray",
+        "/opt/x-ui/bin/xray",
         "xray",
     }
     
@@ -822,6 +825,23 @@ func getXrayInfo(c *gin.Context) {
         }
     }
     
+    // 特殊检查：查找3X-UI内置的xray
+    xuiPaths := []string{"/usr/local/x-ui", "/opt/3x-ui", "/opt/x-ui"}
+    for _, xuiPath := range xuiPaths {
+        if _, err := os.Stat(xuiPath); err == nil {
+            // 检查是否有内置的xray二进制
+            possibleXray := []string{
+                xuiPath + "/bin/xray",
+                xuiPath + "/xray",
+            }
+            for _, xrayPath := range possibleXray {
+                if _, err := os.Stat(xrayPath); err == nil {
+                    foundPaths = append(foundPaths, xrayPath + " (3X-UI内置)")
+                }
+            }
+        }
+    }
+    
     // 检查PATH中的xray
     if _, err := exec.LookPath("xray"); err == nil {
         foundPaths = append(foundPaths, "xray (in PATH)")
@@ -833,6 +853,141 @@ func getXrayInfo(c *gin.Context) {
             "foundPaths": foundPaths,
             "version": xrayVersion,
             "canGenerate": len(foundPaths) > 0,
+            "timestamp": time.Now().Unix(),
+        },
+    })
+}
+
+// 新增：强力查找xray可执行文件
+func findXrayExecutable(c *gin.Context) {
+    log.Printf("开始全面搜索xray可执行文件")
+    
+    // 执行find命令查找所有可能的xray文件
+    cmd := exec.Command("find", "/", "-name", "xray", "-type", "f", "-executable", "2>/dev/null")
+    output, err := cmd.Output()
+    
+    var allXrayPaths []string
+    if err == nil {
+        lines := strings.Split(string(output), "\n")
+        for _, line := range lines {
+            line = strings.TrimSpace(line)
+            if line != "" && strings.HasSuffix(line, "xray") {
+                allXrayPaths = append(allXrayPaths, line)
+            }
+        }
+    }
+    
+    // 检查常见位置
+    commonPaths := []string{
+        "/usr/local/x-ui/bin/xray",
+        "/usr/local/x-ui/xray", 
+        "/usr/local/bin/xray",
+        "/usr/bin/xray",
+        "/opt/3x-ui/bin/xray",
+        "/opt/x-ui/bin/xray",
+    }
+    
+    var validPaths []gin.H
+    for _, path := range append(allXrayPaths, commonPaths...) {
+        if _, err := os.Stat(path); err == nil {
+            // 测试是否可执行
+            cmd := exec.Command(path, "version")
+            if output, err := cmd.Output(); err == nil {
+                version := "未知版本"
+                lines := strings.Split(string(output), "\n")
+                for _, line := range lines {
+                    if strings.Contains(line, "Xray") {
+                        version = strings.TrimSpace(line)
+                        break
+                    }
+                }
+                
+                validPaths = append(validPaths, gin.H{
+                    "path": path,
+                    "version": version,
+                    "accessible": true,
+                })
+            } else {
+                validPaths = append(validPaths, gin.H{
+                    "path": path,
+                    "version": "无法获取版本",
+                    "accessible": false,
+                    "error": err.Error(),
+                })
+            }
+        }
+    }
+    
+    c.JSON(200, gin.H{
+        "success": true,
+        "data": gin.H{
+            "allFoundPaths": allXrayPaths,
+            "validPaths": validPaths,
+            "searchMethod": "find + common paths",
+            "timestamp": time.Now().Unix(),
+        },
+    })
+}
+
+// 新增：测试指定路径的xray
+func testXrayPath(c *gin.Context) {
+    xrayPath := c.Param("path")
+    if xrayPath == "" {
+        c.JSON(400, gin.H{
+            "success": false,
+            "msg": "缺少xray路径参数",
+        })
+        return
+    }
+    
+    // URL解码路径
+    import "net/url"
+    decodedPath, _ := url.QueryUnescape(xrayPath)
+    
+    log.Printf("测试xray路径: %s", decodedPath)
+    
+    // 检查文件是否存在
+    if _, err := os.Stat(decodedPath); err != nil {
+        c.JSON(404, gin.H{
+            "success": false,
+            "msg": fmt.Sprintf("文件不存在: %s", decodedPath),
+            "error": err.Error(),
+        })
+        return
+    }
+    
+    // 测试version命令
+    cmd := exec.Command(decodedPath, "version")
+    output, err := cmd.Output()
+    if err != nil {
+        c.JSON(500, gin.H{
+            "success": false,
+            "msg": fmt.Sprintf("执行version命令失败: %v", err),
+            "path": decodedPath,
+        })
+        return
+    }
+    
+    // 测试x25519命令
+    cmd = exec.Command(decodedPath, "x25519")
+    x25519Output, err := cmd.Output()
+    if err != nil {
+        c.JSON(500, gin.H{
+            "success": false,
+            "msg": fmt.Sprintf("执行x25519命令失败: %v", err),
+            "path": decodedPath,
+            "versionOutput": string(output),
+        })
+        return
+    }
+    
+    c.JSON(200, gin.H{
+        "success": true,
+        "data": gin.H{
+            "path": decodedPath,
+            "versionOutput": string(output),
+            "x25519Output": string(x25519Output),
+            "canGenerateKeys": true,
             "timestamp": time.Now().Unix(),
         },
     })
@@ -947,6 +1102,8 @@ func setupRoutes() *gin.Engine {
             tools.GET("/generate-reality-keys", generateRealityKeys)
             tools.POST("/validate-reality-keys", validateRealityKeys)
             tools.GET("/xray-info", getXrayInfo)
+            tools.GET("/find-xray", findXrayExecutable)
+            tools.GET("/test-xray/:path", testXrayPath)
         }
     }
     
