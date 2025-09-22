@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.0 - 出站和路由管理模拟端点版
+# 版本: 2.2.1 - 出站和路由管理模拟端点版 (修复编译)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -302,7 +302,7 @@ package main
 
 import (
     "encoding/base64"
-    "encoding/json"
+    "encoding/json"  // JSON序列化/反序列化支持
     "bytes"
     "fmt"
     "io"
@@ -1660,7 +1660,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.0",
+            "version":   "2.2.1",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1669,7 +1669,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.0",
+            "version": "2.2.1",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -2159,7 +2159,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.0"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.1"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2192,7 +2192,7 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.0)："
+        log_info "🆕 升级内容 (v2.2.1)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
