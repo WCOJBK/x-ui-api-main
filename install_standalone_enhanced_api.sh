@@ -301,6 +301,7 @@ EOF
 package main
 
 import (
+    "encoding/base64"
     "fmt"
     "log"
     "net/url"
@@ -314,6 +315,7 @@ import (
     "github.com/gin-gonic/gin"
     "gorm.io/driver/sqlite"
     "gorm.io/gorm"
+    "golang.org/x/crypto/curve25519"
 )
 
 // 配置结构
@@ -709,24 +711,48 @@ func generateRealityKeys(c *gin.Context) {
     outputStr := string(output)
     log.Printf("xray x25519输出: %s", outputStr)
     
-    // 解析输出
+    // 解析输出（兼容多种格式）
     lines := strings.Split(outputStr, "\n")
     var privateKey, publicKey string
     
     for _, line := range lines {
-        line = strings.TrimSpace(line)
-        if strings.Contains(line, "Private key:") {
-            parts := strings.Fields(line)
-            if len(parts) >= 3 {
-                privateKey = parts[2]
-                log.Printf("解析到私钥: %s", privateKey[:10]+"...")
+        l := strings.TrimSpace(line)
+        lLower := strings.ToLower(l)
+        // 兼容 "Private key:" 与 "PrivateKey:" 两种格式
+        if privateKey == "" && (strings.Contains(lLower, "private key:") || strings.Contains(lLower, "privatekey:")) {
+            if idx := strings.Index(l, ":"); idx >= 0 {
+                privateKey = strings.TrimSpace(l[idx+1:])
+                if len(privateKey) >= 10 {
+                    log.Printf("解析到私钥: %s", privateKey[:10]+"...")
+                } else {
+                    log.Printf("解析到私钥: %s", privateKey)
+                }
             }
+            continue
         }
-        if strings.Contains(line, "Public key:") {
-            parts := strings.Fields(line)
-            if len(parts) >= 3 {
-                publicKey = parts[2]
-                log.Printf("解析到公钥: %s", publicKey[:10]+"...")
+        // 兼容 "Public key:" 与 "PublicKey:" 两种格式
+        if publicKey == "" && (strings.Contains(lLower, "public key:") || strings.Contains(lLower, "publickey:")) {
+            if idx := strings.Index(l, ":"); idx >= 0 {
+                publicKey = strings.TrimSpace(l[idx+1:])
+                if len(publicKey) >= 10 {
+                    log.Printf("解析到公钥: %s", publicKey[:10]+"...")
+                } else {
+                    log.Printf("解析到公钥: %s", publicKey)
+                }
+            }
+            continue
+        }
+    }
+    
+    // 某些版本仅输出 PrivateKey/Password/Hash32，不包含 PublicKey。
+    // 若缺少公钥且私钥存在，尝试本地计算公钥。
+    if privateKey != "" && publicKey == "" {
+        privBytes, err := base64.StdEncoding.DecodeString(privateKey)
+        if err == nil && len(privBytes) == 32 {
+            pubBytes, err2 := curve25519.X25519(privBytes, curve25519.Basepoint)
+            if err2 == nil && len(pubBytes) == 32 {
+                publicKey = base64.StdEncoding.EncodeToString(pubBytes)
+                log.Printf("未从输出解析到公钥，已本地计算公钥: %s", publicKey[:10]+"...")
             }
         }
     }

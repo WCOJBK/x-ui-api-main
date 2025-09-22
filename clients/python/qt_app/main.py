@@ -484,7 +484,7 @@ class MainWindow(QWidget):
 			xray_info = self.enh.get_xray_info()
 			if xray_info.get("success"):
 				info_data = xray_info.get("data", {})
-				found_paths = info_data.get("foundPaths", [])
+				found_paths = info_data.get("foundPaths") or []
 				version = info_data.get("version", "未知")
 				can_generate = info_data.get("canGenerate", False)
 				
@@ -691,8 +691,9 @@ class MainWindow(QWidget):
 				data = resp.json()
 				if data.get("success"):
 					debug_data = data.get("data", {})
-					all_paths = debug_data.get("allFoundPaths", [])
-					valid_paths = debug_data.get("validPaths", [])
+					# 兼容后端返回null的情况（Go中nil slice会被编码为null）
+					all_paths = debug_data.get("allFoundPaths") or []
+					valid_paths = debug_data.get("validPaths") or []
 					
 					self.log(f"📋 全面搜索结果:")
 					self.log(f"   找到的所有xray文件: {len(all_paths)}个")

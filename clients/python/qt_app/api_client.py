@@ -63,7 +63,13 @@ class XUIClient:
 					"maxTimediff": 0,
 					"minClient": "",
 					"privateKey": private_key,
-					"publicKey": public_key,  # 确保包含公钥
+					# 注意：3X-UI 前端读取的是 realitySettings.settings.publicKey
+					"settings": {
+						"publicKey": public_key,
+						"fingerprint": "chrome",
+						"serverName": sni,
+						"spiderX": "/"
+					},
 					"serverNames": [sni, f"www.{sni}"],
 					"shortIds": [short_id],
 					"show": False,
@@ -133,7 +139,13 @@ class XUIClient:
 				"minClient": "",
 				"serverNames": [sni, f"www.{sni}"],
 				"privateKey": private_key_b64,  # 使用base64格式
-				"publicKey": public_key,        # 添加公钥字段
+				# 注意：3X-UI 前端读取的是 realitySettings.settings.publicKey
+				"settings": {
+					"publicKey": public_key,
+					"fingerprint": "chrome",
+					"serverName": sni,
+					"spiderX": "/"
+				},
 				"shortIds": [short_id],
 			},
 			"tcpSettings": {
