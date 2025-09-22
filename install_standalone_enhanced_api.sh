@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.4 - 出站和路由管理模拟端点版 (自动配置检测)
+# 版本: 2.2.5 - 出站和路由管理模拟端点版 (修复xraySetting解析)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -449,18 +449,29 @@ func getXrayConfig(client *http.Client) (*XrayConfig, error) {
 		return nil, fmt.Errorf("missing xraySetting field in config: %s", configStr)
 	}
 	
-	xraySettingStr, ok := xraySettingRaw.(string)
-	if !ok {
-		return nil, fmt.Errorf("xraySetting is not string: %T", xraySettingRaw)
-	}
-	
-	if xraySettingStr == "" {
-		return nil, fmt.Errorf("empty xraySetting string")
-	}
-	
 	var xrayConfig XrayConfig
-	if err := json.Unmarshal([]byte(xraySettingStr), &xrayConfig); err != nil {
-		return nil, fmt.Errorf("parse xray config failed: %v, xraySetting: %s", err, xraySettingStr)
+	
+	// xraySetting可能是字符串或对象，需要分别处理
+	switch xraySettingValue := xraySettingRaw.(type) {
+	case string:
+		// 如果是字符串，需要再次解析JSON
+		if xraySettingValue == "" {
+			return nil, fmt.Errorf("empty xraySetting string")
+		}
+		if err := json.Unmarshal([]byte(xraySettingValue), &xrayConfig); err != nil {
+			return nil, fmt.Errorf("parse xray config failed: %v, xraySetting: %s", err, xraySettingValue)
+		}
+	case map[string]interface{}:
+		// 如果是对象，直接转换
+		xraySettingBytes, err := json.Marshal(xraySettingValue)
+		if err != nil {
+			return nil, fmt.Errorf("marshal xraySetting object failed: %v", err)
+		}
+		if err := json.Unmarshal(xraySettingBytes, &xrayConfig); err != nil {
+			return nil, fmt.Errorf("parse xray config from object failed: %v", err)
+		}
+	default:
+		return nil, fmt.Errorf("xraySetting is neither string nor object: %T", xraySettingRaw)
 	}
 	
 	return &xrayConfig, nil
@@ -1702,7 +1713,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.4",
+            "version":   "2.2.5",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1711,7 +1722,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.4",
+            "version": "2.2.5",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -2285,7 +2296,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.4"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.5"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2318,7 +2329,7 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.4)："
+        log_info "🆕 升级内容 (v2.2.5)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
@@ -2326,6 +2337,7 @@ main() {
         echo "   ✅ 增强Python客户端自动检测功能"
         echo "   ✅ 自动检测3X-UI配置 (端口/basePath/用户名/密码)"
         echo "   ✅ 修复systemd服务路径问题"
+        echo "   ✅ 修复xraySetting字段解析兼容性问题"
         echo "   ✅ 保持原有端口和配置不变"
     else
         log_success "🎉 3X-UI增强API服务安装完成！"
