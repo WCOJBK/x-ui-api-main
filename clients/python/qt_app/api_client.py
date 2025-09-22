@@ -24,7 +24,75 @@ class XUIClient:
 		resp = self.session.post(f"{self.base_url}/panel/api/inbounds/update/{inbound_id}", json=updated_data)
 		return resp.json() if resp.ok else {"success": False, "msg": resp.text}
 
+	def add_vless_reality_template(self, port: int, uuid: str, sni: str, private_key: str, public_key: str, short_id: str, email: str = "reality@example.com", total_gb: int = 0, expiry_time: int = 0, limit_ip: int = 0) -> Dict[str, Any]:
+		"""使用模板方式创建VLESS Reality入站（基于成功的端口20297配置）"""
+		import json
+		
+		# 完全复制手动创建成功的配置模板
+		template_config = {
+			"remark": f"vless-reality-{port}",
+			"enable": True,
+			"expiryTime": expiry_time,
+			"listen": None,  # 与模板一致
+			"port": port,
+			"protocol": "vless",
+			"settings": json.dumps({
+				"clients": [{
+					"email": email,
+					"flow": "xtls-rprx-vision",
+					"id": uuid,
+					"totalGB": total_gb * 1024 * 1024 * 1024 if total_gb > 0 else 0,
+					"expiryTime": expiry_time,
+					"limitIp": limit_ip,
+					"enable": True
+				}],
+				"decryption": "none",
+				"fallbacks": []
+			}),
+			"sniffing": json.dumps({
+				"destOverride": ["http", "tls", "quic", "fakedns"],
+				"enabled": False,  # 注意：模板中是false
+				"metadataOnly": False,
+				"routeOnly": False
+			}),
+			"streamSettings": json.dumps({
+				"network": "tcp",
+				"realitySettings": {
+					"dest": f"{sni}:443",
+					"maxClient": "",
+					"maxTimediff": 0,
+					"minClient": "",
+					"privateKey": private_key,
+					"publicKey": public_key,  # 确保包含公钥
+					"serverNames": [sni, f"www.{sni}"],
+					"shortIds": [short_id],
+					"show": False,
+					"xver": 0
+				},
+				"security": "reality",
+				"tcpSettings": {
+					"acceptProxyProtocol": False,
+					"header": {
+						"type": "none"
+					}
+				}
+			}),
+			"allocate": json.dumps({
+				"concurrency": 3,
+				"refresh": 5,
+				"strategy": "always"
+			})
+		}
+		
+		resp = self.session.post(f"{self.base_url}/panel/api/inbounds/add", json=template_config)
+		return resp.json() if resp.ok else {"success": False, "msg": resp.text}
+
 	def add_vless_reality(self, port: int, uuid: str, sni: str, private_key: str, short_id: str, email: str = "reality@example.com", total_gb: int = 0, expiry_time: int = 0, limit_ip: int = 0, public_key: str = "") -> Dict[str, Any]:
+		"""标准方式创建VLESS Reality入站"""
+		# 如果有公钥，使用模板方式创建（更可靠）
+		if public_key:
+			return self.add_vless_reality_template(port, uuid, sni, private_key, public_key, short_id, email, total_gb, expiry_time, limit_ip)
+		
 		import json
 		
 		settings = {
@@ -118,3 +186,19 @@ class EnhancedAPIClient:
 
 	def system_health(self) -> Any:
 		return self.session.get(f"{self.base_url}/panel/api/enhanced/monitor/health/system").json()
+
+	def generate_reality_keys(self) -> Any:
+		"""调用服务器生成Reality密钥"""
+		resp = self.session.get(f"{self.base_url}/panel/api/enhanced/tools/generate-reality-keys")
+		return resp.json() if resp.ok else {"success": False, "msg": resp.text, "status": resp.status_code}
+
+	def get_xray_info(self) -> Any:
+		"""获取服务器xray信息"""
+		resp = self.session.get(f"{self.base_url}/panel/api/enhanced/tools/xray-info")
+		return resp.json() if resp.ok else {"success": False, "msg": resp.text}
+
+	def validate_keys(self, private_key: str, public_key: str) -> Any:
+		"""验证密钥格式"""
+		resp = self.session.post(f"{self.base_url}/panel/api/enhanced/tools/validate-reality-keys", 
+								json={"privateKey": private_key, "publicKey": public_key})
+		return resp.json() if resp.ok else {"success": False, "msg": resp.text}

@@ -91,6 +91,10 @@ class InboundPane(QWidget):
 		btn_layout.addWidget(self.gen_btn)
 		self.server_gen_btn = QPushButton("🌐 服务器生成密钥")
 		btn_layout.addWidget(self.server_gen_btn)
+		self.template_btn = QPushButton("📋 使用模板密钥")
+		btn_layout.addWidget(self.template_btn)
+		self.manual_btn = QPushButton("✏️ 手动填入密钥")
+		btn_layout.addWidget(self.manual_btn)
 		btn_layout.addWidget(self.copy_btn)
 		layout.addLayout(btn_layout)
 		layout.addWidget(self.create_btn)
@@ -145,6 +149,8 @@ class MainWindow(QWidget):
 		self.inbound_pane.create_btn.clicked.connect(self.create_vless_reality)
 		self.inbound_pane.gen_btn.clicked.connect(self.gen_reality_keys)
 		self.inbound_pane.server_gen_btn.clicked.connect(self.server_gen_reality_keys)
+		self.inbound_pane.template_btn.clicked.connect(self.use_template_keys)
+		self.inbound_pane.manual_btn.clicked.connect(self.manual_input_keys)
 		self.inbound_pane.copy_btn.clicked.connect(self.copy_vless_link)
 		self.inbound_pane.refresh_btn.clicked.connect(self.refresh_uuid_email)
 		self.inbound_pane.verify_btn.clicked.connect(self.verify_latest_inbound)
@@ -470,34 +476,202 @@ class MainWindow(QWidget):
 			return
 		
 		try:
-			# 通过增强API调用服务器xray命令生成密钥
-			resp = self.enh.session.get(f"{self.enh.base_url}/panel/api/enhanced/tools/generate-reality-keys")
-			if resp.ok:
-				data = resp.json()
-				if data.get("success"):
-					keys = data.get("data", {})
-					private_key = keys.get("privateKey", "")
-					public_key = keys.get("publicKey", "")
+			# 先检查服务器xray信息
+			self.log("🔍 检查服务器xray环境...")
+			xray_info = self.enh.get_xray_info()
+			if xray_info.get("success"):
+				info_data = xray_info.get("data", {})
+				found_paths = info_data.get("foundPaths", [])
+				version = info_data.get("version", "未知")
+				can_generate = info_data.get("canGenerate", False)
+				
+				self.log(f"📋 服务器xray信息:")
+				self.log(f"   路径: {found_paths}")
+				self.log(f"   版本: {version}")
+				self.log(f"   可生成: {can_generate}")
+				
+				if not can_generate:
+					self.log("❌ 服务器无xray环境，回退到本地生成")
+					self.gen_reality_keys()
+					return
+			
+			# 调用服务器生成密钥
+			self.log("🌐 正在调用服务器生成密钥...")
+			resp = self.enh.generate_reality_keys()
+			
+			if resp.get("success"):
+				keys = resp.get("data", {})
+				private_key = keys.get("privateKey", "")
+				public_key = keys.get("publicKey", "")
+				method = keys.get("method", "")
+				command = keys.get("command", "")
+				
+				if private_key and public_key:
+					self.inbound_pane.priv.setText(private_key)
+					self.inbound_pane.pub_out.setText(public_key)
+					self.log(f"✅ 服务器生成密钥成功")
+					self.log(f"🔧 生成方法: {method}")
+					self.log(f"🔧 执行命令: {command}")
+					self.log(f"🔑 私钥: {private_key[:16]}...{private_key[-16:]} (长度:{len(private_key)})")
+					self.log(f"🗝️  公钥: {public_key[:16]}...{public_key[-16:]} (长度:{len(public_key)})")
 					
-					if private_key and public_key:
-						self.inbound_pane.priv.setText(private_key)
-						self.inbound_pane.pub_out.setText(public_key)
-						self.log(f"✅ 服务器生成密钥成功")
-						self.log(f"🔑 私钥: {private_key[:16]}...{private_key[-16:]}")
-						self.log(f"🗝️  公钥: {public_key[:16]}...{public_key[-16:]}")
+					# 验证密钥格式
+					validation = self.enh.validate_keys(private_key, public_key)
+					if validation.get("success"):
+						self.log("✅ 密钥格式验证通过")
 					else:
-						self.log("❌ 服务器返回的密钥为空")
+						self.log(f"⚠️  密钥格式验证失败: {validation.get('msg', '未知错误')}")
 				else:
-					self.log(f"❌ 服务器生成密钥失败: {data.get('msg', '未知错误')}")
+					self.log("❌ 服务器返回的密钥为空")
+					self.log(f"🔧 调试信息: {resp}")
 			else:
-				# 如果增强API不支持，回退到本地生成
-				self.log("⚠️  增强API不支持密钥生成，使用本地生成")
+				error_msg = resp.get("msg", "未知错误")
+				status_code = resp.get("status", 0)
+				self.log(f"❌ 服务器生成密钥失败: {error_msg} (状态码:{status_code})")
+				self.log(f"🔧 完整响应: {resp}")
+				
+				# 回退到本地生成
+				self.log("🔄 回退到本地生成密钥")
 				self.gen_reality_keys()
+				
 		except Exception as e:
-			self.log(f"❌ 服务器生成密钥失败: {e}")
+			self.log(f"❌ 服务器生成密钥异常: {e}")
+			import traceback
+			self.log(f"🔧 详细错误: {traceback.format_exc()}")
 			# 回退到本地生成
 			self.log("🔄 回退到本地生成密钥")
 			self.gen_reality_keys()
+
+	def use_template_keys(self) -> None:
+		"""使用已知有效的模板密钥（从手动创建的端口20297复制）"""
+		# 从您手动创建成功的端口20297入站复制的有效密钥对
+		template_private = "IBl5LgqxOQQAxKUYl3i6Le83IWlwfAtArjYXaEwftFk"
+		
+		if _HAS_CRYPTO:
+			try:
+				import base64
+				
+				# 修复base64 padding问题
+				def fix_base64_padding(data: str) -> str:
+					"""修复base64字符串的padding"""
+					missing_padding = len(data) % 4
+					if missing_padding:
+						data += '=' * (4 - missing_padding)
+					return data
+				
+				# 修复私钥的padding并解码
+				fixed_private = fix_base64_padding(template_private)
+				priv_bytes = base64.b64decode(fixed_private)
+				
+				# 验证私钥长度
+				if len(priv_bytes) != 32:
+					raise ValueError(f"私钥长度错误: {len(priv_bytes)}字节，期望32字节")
+				
+				# 从私钥计算公钥
+				priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+				pub_obj = priv_obj.public_key()
+				pub_bytes = pub_obj.public_bytes(
+					encoding=serialization.Encoding.Raw,
+					format=serialization.PublicFormat.Raw,
+				)
+				template_public = base64.b64encode(pub_bytes).decode('ascii')
+				
+				# 填入界面
+				self.inbound_pane.priv.setText(template_private)
+				self.inbound_pane.pub_out.setText(template_public)
+				
+				self.log(f"✅ 已使用模板密钥（来自成功的端口20297）")
+				self.log(f"🔑 私钥: {template_private[:16]}...{template_private[-16:]}")
+				self.log(f"🗝️  公钥: {template_public[:16]}...{template_public[-16:]}")
+				self.log(f"🔧 私钥长度验证: {len(priv_bytes)}字节")
+				
+			except Exception as e:
+				self.log(f"❌ 模板密钥处理失败: {e}")
+				# 回退到本地生成
+				self.log("🔄 回退到本地生成新密钥")
+				self.gen_reality_keys()
+		else:
+			# 直接使用已知的私钥，提示手动生成公钥
+			self.inbound_pane.priv.setText(template_private)
+			self.log(f"✅ 已使用模板私钥，需要手动计算公钥")
+			QMessageBox.information(self, "提示", "已填入模板私钥，但无法计算公钥。请安装cryptography依赖或使用其他生成方式。")
+
+	def manual_input_keys(self) -> None:
+		"""手动输入已知的有效密钥对"""
+		from PySide6.QtWidgets import QInputDialog
+		
+		# 提供已知有效的密钥对（从端口20297）
+		known_pairs = [
+			{
+				"name": "端口20297模板密钥",
+				"private": "IBl5LgqxOQQAxKUYl3i6Le83IWlwfAtArjYXaEwftFk",
+				"public": "需要计算"
+			}
+		]
+		
+		# 让用户选择或输入
+		options = ["手动输入私钥"] + [pair["name"] for pair in known_pairs]
+		choice, ok = QInputDialog.getItem(self, "选择密钥来源", "请选择:", options, 0, False)
+		
+		if not ok:
+			return
+			
+		if choice == "手动输入私钥":
+			# 手动输入私钥
+			private_key, ok1 = QInputDialog.getText(self, "输入私钥", "请输入Reality私钥 (Base64格式):")
+			if not ok1 or not private_key.strip():
+				return
+				
+			public_key, ok2 = QInputDialog.getText(self, "输入公钥", "请输入Reality公钥 (Base64格式):")
+			if not ok2 or not public_key.strip():
+				# 尝试从私钥计算公钥
+				if _HAS_CRYPTO:
+					try:
+						import base64
+						priv_bytes = base64.b64decode(private_key.strip())
+						priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+						pub_obj = priv_obj.public_key()
+						pub_bytes = pub_obj.public_bytes(
+							encoding=serialization.Encoding.Raw,
+							format=serialization.PublicFormat.Raw,
+						)
+						public_key = base64.b64encode(pub_bytes).decode('ascii')
+						self.log("🗝️  已从手动输入的私钥计算公钥")
+					except Exception as e:
+						self.log(f"❌ 从私钥计算公钥失败: {e}")
+						return
+				else:
+					self.log("❌ 无法计算公钥，请手动输入")
+					return
+			
+			self.inbound_pane.priv.setText(private_key.strip())
+			self.inbound_pane.pub_out.setText(public_key.strip())
+			self.log(f"✅ 已手动填入密钥对")
+			
+		else:
+			# 使用预设的模板
+			for pair in known_pairs:
+				if pair["name"] == choice:
+					self.inbound_pane.priv.setText(pair["private"])
+					self.log(f"✅ 已使用预设密钥: {choice}")
+					
+					# 尝试计算公钥
+					if _HAS_CRYPTO:
+						try:
+							import base64
+							priv_bytes = base64.b64decode(pair["private"])
+							priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+							pub_obj = priv_obj.public_key()
+							pub_bytes = pub_obj.public_bytes(
+								encoding=serialization.Encoding.Raw,
+								format=serialization.PublicFormat.Raw,
+							)
+							public_key = base64.b64encode(pub_bytes).decode('ascii')
+							self.inbound_pane.pub_out.setText(public_key)
+							self.log(f"🗝️  已计算对应公钥")
+						except Exception as e:
+							self.log(f"❌ 计算公钥失败: {e}")
+					break
 
 	def export_logs(self) -> None:
 		path, _ = QFileDialog.getSaveFileName(self, "导出日志", "xui-enhanced-log.txt", "Text Files (*.txt)")

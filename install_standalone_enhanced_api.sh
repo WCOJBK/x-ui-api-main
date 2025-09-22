@@ -651,7 +651,7 @@ func getPerformanceMetrics(c *gin.Context) {
 }
 
 func generateRealityKeys(c *gin.Context) {
-    // 尝试调用系统的xray命令生成密钥
+    log.Printf("收到密钥生成请求")
     
     // 查找xray可执行文件
     xrayPaths := []string{
@@ -665,6 +665,7 @@ func generateRealityKeys(c *gin.Context) {
     for _, path := range xrayPaths {
         if _, err := os.Stat(path); err == nil {
             xrayCmd = path
+            log.Printf("找到xray: %s", path)
             break
         }
     }
@@ -673,52 +674,108 @@ func generateRealityKeys(c *gin.Context) {
         // 如果找不到xray，尝试用PATH查找
         if _, err := exec.LookPath("xray"); err == nil {
             xrayCmd = "xray"
+            log.Printf("在PATH中找到xray")
         }
     }
     
     if xrayCmd == "" {
+        log.Printf("未找到xray可执行文件")
         c.JSON(500, gin.H{
             "success": false,
             "msg": "服务器上未找到xray可执行文件",
+            "searchPaths": xrayPaths,
         })
         return
     }
     
     // 执行xray x25519命令
+    log.Printf("执行命令: %s x25519", xrayCmd)
     cmd := exec.Command(xrayCmd, "x25519")
     output, err := cmd.Output()
     if err != nil {
+        log.Printf("执行xray x25519失败: %v", err)
         c.JSON(500, gin.H{
             "success": false,
             "msg": fmt.Sprintf("执行xray x25519失败: %v", err),
+            "command": fmt.Sprintf("%s x25519", xrayCmd),
         })
         return
     }
     
+    outputStr := string(output)
+    log.Printf("xray x25519输出: %s", outputStr)
+    
     // 解析输出
-    lines := strings.Split(string(output), "\n")
+    lines := strings.Split(outputStr, "\n")
     var privateKey, publicKey string
     
     for _, line := range lines {
+        line = strings.TrimSpace(line)
         if strings.Contains(line, "Private key:") {
             parts := strings.Fields(line)
             if len(parts) >= 3 {
                 privateKey = parts[2]
+                log.Printf("解析到私钥: %s", privateKey[:10]+"...")
             }
         }
         if strings.Contains(line, "Public key:") {
             parts := strings.Fields(line)
             if len(parts) >= 3 {
                 publicKey = parts[2]
+                log.Printf("解析到公钥: %s", publicKey[:10]+"...")
             }
         }
     }
     
     if privateKey == "" || publicKey == "" {
+        log.Printf("解析密钥失败 - 私钥: %s, 公钥: %s", privateKey, publicKey)
         c.JSON(500, gin.H{
             "success": false,
             "msg": "解析xray输出失败",
-            "output": string(output),
+            "output": outputStr,
+            "privateKey": privateKey,
+            "publicKey": publicKey,
+        })
+        return
+    }
+    
+    log.Printf("密钥生成成功")
+    c.JSON(200, gin.H{
+        "success": true,
+        "data": gin.H{
+            "privateKey": privateKey,
+            "publicKey": publicKey,
+            "method": "xray x25519",
+            "command": fmt.Sprintf("%s x25519", xrayCmd),
+            "timestamp": time.Now().Unix(),
+        },
+    })
+}
+
+// 新增：验证密钥有效性
+func validateRealityKeys(c *gin.Context) {
+    type KeyRequest struct {
+        PrivateKey string `json:"privateKey"`
+        PublicKey  string `json:"publicKey"`
+    }
+    
+    var req KeyRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, gin.H{
+            "success": false,
+            "msg": "请求格式错误",
+            "error": err.Error(),
+        })
+        return
+    }
+    
+    // 验证密钥格式
+    if len(req.PrivateKey) != 44 || len(req.PublicKey) != 44 {
+        c.JSON(400, gin.H{
+            "success": false,
+            "msg": "密钥长度错误，应为44字符的base64字符串",
+            "privateKeyLen": len(req.PrivateKey),
+            "publicKeyLen": len(req.PublicKey),
         })
         return
     }
@@ -726,9 +783,56 @@ func generateRealityKeys(c *gin.Context) {
     c.JSON(200, gin.H{
         "success": true,
         "data": gin.H{
-            "privateKey": privateKey,
-            "publicKey": publicKey,
-            "method": "xray x25519",
+            "valid": true,
+            "privateKeyFormat": "base64",
+            "publicKeyFormat": "base64",
+            "timestamp": time.Now().Unix(),
+        },
+    })
+}
+
+// 新增：获取系统可用的xray路径
+func getXrayInfo(c *gin.Context) {
+    xrayPaths := []string{
+        "/usr/local/x-ui/bin/xray",
+        "/usr/local/bin/xray", 
+        "/usr/bin/xray",
+    }
+    
+    var foundPaths []string
+    var xrayVersion string
+    
+    for _, path := range xrayPaths {
+        if _, err := os.Stat(path); err == nil {
+            foundPaths = append(foundPaths, path)
+            
+            // 获取版本信息
+            if xrayVersion == "" {
+                cmd := exec.Command(path, "version")
+                if output, err := cmd.Output(); err == nil {
+                    lines := strings.Split(string(output), "\n")
+                    for _, line := range lines {
+                        if strings.Contains(line, "Xray") {
+                            xrayVersion = strings.TrimSpace(line)
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 检查PATH中的xray
+    if _, err := exec.LookPath("xray"); err == nil {
+        foundPaths = append(foundPaths, "xray (in PATH)")
+    }
+    
+    c.JSON(200, gin.H{
+        "success": true,
+        "data": gin.H{
+            "foundPaths": foundPaths,
+            "version": xrayVersion,
+            "canGenerate": len(foundPaths) > 0,
             "timestamp": time.Now().Unix(),
         },
     })
@@ -841,6 +945,8 @@ func setupRoutes() *gin.Engine {
         tools := api.Group("/tools")
         {
             tools.GET("/generate-reality-keys", generateRealityKeys)
+            tools.POST("/validate-reality-keys", validateRealityKeys)
+            tools.GET("/xray-info", getXrayInfo)
         }
     }
     
