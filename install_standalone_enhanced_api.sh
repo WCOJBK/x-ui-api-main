@@ -303,6 +303,7 @@ package main
 import (
     "fmt"
     "log"
+    "net/url"
     "os"
     "os/exec"
     "strconv"
@@ -941,7 +942,6 @@ func testXrayPath(c *gin.Context) {
     }
     
     // URL解码路径
-    import "net/url"
     decodedPath, _ := url.QueryUnescape(xrayPath)
     
     log.Printf("测试xray路径: %s", decodedPath)
