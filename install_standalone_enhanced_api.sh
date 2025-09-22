@@ -495,23 +495,18 @@ func setXrayConfig(client *http.Client, xrayConfig *XrayConfig) error {
 	
 	log.Printf("Xray config to send: %s", string(configBytes))
 	
-	reqData := map[string]string{
-		"xraySetting": string(configBytes),
-	}
-	
-	reqBytes, err := json.Marshal(reqData)
-	if err != nil {
-		return fmt.Errorf("marshal request data failed: %v", err)
-	}
-	
-	log.Printf("Request data: %s", string(reqBytes))
-	
-	req, err := http.NewRequest("POST", config.XUIBaseURL+"/panel/xray/update", bytes.NewBuffer(reqBytes))
+    // 原生面板使用表单 x-www-form-urlencoded 提交 xraySetting
+    form := url.Values{}
+    form.Set("xraySetting", string(configBytes))
+    encodedForm := form.Encode()
+    log.Printf("Form data length: %d, preview: %s", len(encodedForm), func(s string) string { if len(s) > 512 { return s[:512] + "..." } ; return s }(encodedForm))
+
+    req, err := http.NewRequest("POST", config.XUIBaseURL+"/panel/xray/update", strings.NewReader(encodedForm))
 	if err != nil {
 		return fmt.Errorf("create request failed: %v", err)
 	}
 	
-	req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	
 	resp, err := client.Do(req)
