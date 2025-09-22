@@ -296,6 +296,48 @@ location /sub {
 - Português (Brazil)（葡萄牙语（巴西））
 
 
+## 最新更新 (2025.09.22)
+
+### 🚀 出站和路由管理功能强化
+
+由于原生3X-UI面板的API路由缺失问题，我们在**增强API**中实现了完整的前端操作模拟功能：
+
+#### 📡 新增模拟端点
+- **出站管理**: `/panel/api/enhanced/tools/simulate/outbounds/{list,add,update,delete}`  
+- **路由管理**: `/panel/api/enhanced/tools/simulate/routing/{get,update}`  
+- **路由规则**: `/panel/api/enhanced/tools/simulate/routing/rule/{add,delete,update}`
+
+#### 🔧 技术实现
+- **前端操作模拟**: 直接通过 `/panel/xray/` 和 `/panel/xray/update` 端点操作Xray配置
+- **配置直接操作**: 绕过缺失的原生API路由，直接读写Xray配置JSON
+- **完全兼容**: 支持所有原生面板的出站和路由功能
+
+#### 🎯 Python客户端增强
+- **自动增强API检测**: 客户端自动推断增强API地址（端口8080）
+- **透明切换**: 出站/路由操作自动使用增强API模拟端点
+- **详细调试日志**: 完整的HTTP请求/响应调试信息
+
+#### ⚙️ 升级方法
+```bash
+# 在服务器上运行升级脚本
+bash <(curl -Ls https://raw.githubusercontent.com/WCOJBK/x-ui-api-main/main/install_standalone_enhanced_api.sh)
+
+# 配置面板访问信息
+export XUI_BASE_URL="http://127.0.0.1:2053/your_base_path"  
+export PANEL_USER="your_username"
+export PANEL_PASS="your_password"
+sudo systemctl restart x-ui-enhanced-api
+```
+
+#### ✅ 解决的问题
+- ✅ 原生面板404错误: `404 page not found` for `/panel/api/outbounds/`
+- ✅ 出站配置无法添加/更新/删除
+- ✅ 路由规则管理功能缺失
+- ✅ 快速字符串解析HTTP代理配置
+- ✅ 完整的GUI图形界面管理
+
+---
+
 ## Features
 
 - 系统状态监控
