@@ -345,6 +345,18 @@ func decodeBase64Flexible(s string) ([]byte, error) {
     return nil, fmt.Errorf("invalid base64 input")
 }
 
+// 将任意变体的Base64字符串标准化为带填充的标准Base64（长度应为44）
+func normalizeBase64Std(s string) (string, error) {
+    b, err := decodeBase64Flexible(s)
+    if err != nil {
+        return "", err
+    }
+    if len(b) != 32 {
+        return "", fmt.Errorf("invalid key bytes length: %d", len(b))
+    }
+    return base64.StdEncoding.EncodeToString(b), nil
+}
+
 // 配置结构
 type Config struct {
     Port       int
@@ -738,7 +750,7 @@ func generateRealityKeys(c *gin.Context) {
     outputStr := string(output)
     log.Printf("xray x25519输出: %s", outputStr)
     
-    // 解析输出（兼容多种格式）
+    // 解析输出（兼容多种格式，且标准化为固定44长度的base64）
     lines := strings.Split(outputStr, "\n")
     var privateKey, publicKey string
     
@@ -774,12 +786,14 @@ func generateRealityKeys(c *gin.Context) {
     // 某些版本仅输出 PrivateKey/Password/Hash32，不包含 PublicKey。
     // 若缺少公钥且私钥存在，尝试本地计算公钥。
     if privateKey != "" && publicKey == "" {
-        privBytes, err := decodeBase64Flexible(privateKey)
-        if err == nil && len(privBytes) == 32 {
-            pubBytes, err2 := curve25519.X25519(privBytes, curve25519.Basepoint)
-            if err2 == nil && len(pubBytes) == 32 {
-                publicKey = base64.StdEncoding.EncodeToString(pubBytes)
-                log.Printf("未从输出解析到公钥，已本地计算公钥: %s", publicKey[:10]+"...")
+        // 将私钥标准化为标准Base64（44长度）
+        if stdPriv, err := normalizeBase64Std(privateKey); err == nil {
+            privateKey = stdPriv
+            if privBytes, err2 := decodeBase64Flexible(privateKey); err2 == nil && len(privBytes) == 32 {
+                if pubBytes, err3 := curve25519.X25519(privBytes, curve25519.Basepoint); err3 == nil && len(pubBytes) == 32 {
+                    publicKey = base64.StdEncoding.EncodeToString(pubBytes)
+                    log.Printf("未从输出解析到公钥，已本地计算公钥: %s", publicKey[:10]+"...")
+                }
             }
         }
     }
@@ -796,7 +810,7 @@ func generateRealityKeys(c *gin.Context) {
         return
     }
     
-    log.Printf("密钥生成成功")
+    log.Printf("密钥生成成功: privLen=%d pubLen=%d", len(privateKey), len(publicKey))
     c.JSON(200, gin.H{
         "success": true,
         "data": gin.H{
