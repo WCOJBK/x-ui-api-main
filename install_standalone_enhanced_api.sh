@@ -318,6 +318,33 @@ import (
     "golang.org/x/crypto/curve25519"
 )
 
+// 兼容多种Base64编码（标准/RAW/URL），并自动补齐padding
+func decodeBase64Flexible(s string) ([]byte, error) {
+    s = strings.TrimSpace(s)
+    if len(s) == 0 {
+        return nil, fmt.Errorf("empty base64 input")
+    }
+    if b, err := base64.StdEncoding.DecodeString(s); err == nil && len(b) > 0 {
+        return b, nil
+    }
+    if b, err := base64.RawStdEncoding.DecodeString(s); err == nil && len(b) > 0 {
+        return b, nil
+    }
+    if b, err := base64.URLEncoding.DecodeString(s); err == nil && len(b) > 0 {
+        return b, nil
+    }
+    if b, err := base64.RawURLEncoding.DecodeString(s); err == nil && len(b) > 0 {
+        return b, nil
+    }
+    if m := len(s) % 4; m != 0 {
+        s = s + strings.Repeat("=", 4-m)
+        if b, err := base64.StdEncoding.DecodeString(s); err == nil && len(b) > 0 {
+            return b, nil
+        }
+    }
+    return nil, fmt.Errorf("invalid base64 input")
+}
+
 // 配置结构
 type Config struct {
     Port       int
@@ -747,7 +774,7 @@ func generateRealityKeys(c *gin.Context) {
     // 某些版本仅输出 PrivateKey/Password/Hash32，不包含 PublicKey。
     // 若缺少公钥且私钥存在，尝试本地计算公钥。
     if privateKey != "" && publicKey == "" {
-        privBytes, err := base64.StdEncoding.DecodeString(privateKey)
+        privBytes, err := decodeBase64Flexible(privateKey)
         if err == nil && len(privBytes) == 32 {
             pubBytes, err2 := curve25519.X25519(privBytes, curve25519.Basepoint)
             if err2 == nil && len(pubBytes) == 32 {
