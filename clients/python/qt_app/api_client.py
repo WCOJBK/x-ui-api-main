@@ -134,11 +134,22 @@ class XUIClient:
 		return {"success": False, "msg": resp.text, "status": resp.status_code}
 
 	def login(self, username: str, password: str, login_secret: str = "") -> bool:
-		resp = self.session.post(f"{self.base_url}/login", data={
-			"username": username,
-			"password": password,
-			"loginSecret": login_secret,
-		})
+		# 登录使用表单数据，需要临时移除JSON头部
+		login_headers = {
+			"Content-Type": "application/x-www-form-urlencoded",
+			"X-Requested-With": "XMLHttpRequest",
+			"Referer": self.base_url,
+			"Origin": f"{urlparse(self.base_url).scheme}://{urlparse(self.base_url).netloc}",
+		}
+		
+		resp = self.session.post(f"{self.base_url}/login", 
+			data={
+				"username": username,
+				"password": password,
+				"loginSecret": login_secret,
+			},
+			headers=login_headers
+		)
 		# 记录登录调试
 		try:
 			req = resp.request
