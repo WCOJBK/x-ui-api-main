@@ -1,0 +1,515 @@
+import sys
+import uuid
+import secrets
+from PySide6.QtWidgets import (
+	QApplication, QWidget, QTabWidget, QVBoxLayout, QFormLayout, QLineEdit,
+	QPushButton, QLabel, QHBoxLayout, QSpinBox, QTextEdit, QMessageBox, QCheckBox, QFileDialog
+)
+from PySide6.QtCore import Qt, QSettings
+from api_client import XUIClient, EnhancedAPIClient
+
+# 新增: 本地生成Reality密钥用
+try:
+	from cryptography.hazmat.primitives.asymmetric import x25519
+	from cryptography.hazmat.primitives import serialization
+	_HAS_CRYPTO = True
+except Exception:
+	_HAS_CRYPTO = False
+
+HEX = "0123456789abcdef"
+
+def gen_uuid() -> str:
+	return str(uuid.uuid4())
+
+def gen_short() -> str:
+	return "".join(secrets.choice(HEX) for _ in range(16))
+
+class LoginPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.xui_url = QLineEdit("http://127.0.0.1:2053")
+		self.enh_url = QLineEdit("http://127.0.0.1:8080")
+		self.user = QLineEdit("admin")
+		self.passwd = QLineEdit("admin")
+		self.passwd.setEchoMode(QLineEdit.Password)
+		self.remember = QCheckBox("保存登录信息")
+		self.remember.setChecked(True)
+		self.btn = QPushButton("登录3X-UI")
+		self.status = QLabel("")
+		form = QFormLayout()
+		form.addRow("面板地址", self.xui_url)
+		form.addRow("增强API", self.enh_url)
+		form.addRow("用户名", self.user)
+		form.addRow("密码", self.passwd)
+		layout = QVBoxLayout(self)
+		layout.addLayout(form)
+		layout.addWidget(self.remember)
+		layout.addWidget(self.btn)
+		layout.addWidget(self.status)
+
+class InboundPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.list_btn = QPushButton("查询入站")
+		self.out = QTextEdit(); self.out.setReadOnly(True)
+		# create form
+		self.port = QSpinBox(); self.port.setRange(1, 65535); self.port.setValue(443)
+		self.uuid = QLineEdit(gen_uuid())
+		self.sni = QLineEdit("yahoo.com")
+		self.host = QLineEdit("yahoo.com")
+		self.short = QLineEdit(gen_short())
+		self.priv = QLineEdit("")
+		self.email = QLineEdit(f"reality_{secrets.randbelow(999999)}@example.com")
+		# 新增: 流量控制和到期时间
+		self.total_gb = QSpinBox(); self.total_gb.setRange(0, 10000); self.total_gb.setValue(100); self.total_gb.setSuffix(" GB")
+		self.expiry_days = QSpinBox(); self.expiry_days.setRange(0, 3650); self.expiry_days.setValue(30); self.expiry_days.setSuffix(" 天")
+		self.limit_ip = QSpinBox(); self.limit_ip.setRange(0, 100); self.limit_ip.setValue(2)
+		self.create_btn = QPushButton("创建 VLESS+Reality 入站")
+		# 新增: 本地生成按钮与公钥显示、复制链接
+		self.gen_btn = QPushButton("生成 Reality 密钥对")
+		self.pub_out = QLineEdit("")
+		self.pub_out.setReadOnly(True)
+		self.copy_btn = QPushButton("复制 VLESS 链接到剪贴板")
+		form = QFormLayout()
+		form.addRow("端口", self.port)
+		form.addRow("UUID", self.uuid)
+		form.addRow("SNI/Target", self.sni)
+		form.addRow("主机(客户端地址)", self.host)
+		form.addRow("shortId", self.short)
+		form.addRow("私钥", self.priv)
+		form.addRow("公钥(只读,客户端用)", self.pub_out)
+		form.addRow("Email", self.email)
+		form.addRow("流量限制", self.total_gb)
+		form.addRow("有效期", self.expiry_days)
+		form.addRow("IP限制", self.limit_ip)
+		layout = QVBoxLayout(self)
+		layout.addWidget(self.list_btn)
+		layout.addWidget(self.out)
+		layout.addLayout(form)
+		# 新增: 生成与复制按钮
+		btn_layout = QHBoxLayout()
+		btn_layout.addWidget(self.gen_btn)
+		self.server_gen_btn = QPushButton("🌐 服务器生成密钥")
+		btn_layout.addWidget(self.server_gen_btn)
+		btn_layout.addWidget(self.copy_btn)
+		layout.addLayout(btn_layout)
+		layout.addWidget(self.create_btn)
+		
+		# 新增: 刷新按钮（重新生成UUID和Email避免冲突）
+		self.refresh_btn = QPushButton("🔄 刷新UUID和Email")
+		layout.addWidget(self.refresh_btn)
+		
+		# 新增: 验证按钮（检查数据库实际存储）
+		self.verify_btn = QPushButton("🔍 验证最新入站配置")
+		layout.addWidget(self.verify_btn)
+
+class MonitorPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.refresh = QPushButton("刷新健康与统计")
+		self.out = QTextEdit(); self.out.setReadOnly(True)
+		layout = QVBoxLayout(self)
+		layout.addWidget(self.refresh)
+		layout.addWidget(self.out)
+
+class LogPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.out = QTextEdit(); self.out.setReadOnly(True)
+		self.export_btn = QPushButton("导出日志")
+		layout = QVBoxLayout(self)
+		layout.addWidget(self.out)
+		layout.addWidget(self.export_btn)
+
+class MainWindow(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.setWindowTitle("3X-UI 增强API 桌面客户端")
+		self.tabs = QTabWidget()
+		self.login_pane = LoginPane()
+		self.inbound_pane = InboundPane()
+		self.monitor_pane = MonitorPane()
+		self.log_pane = LogPane()
+		self.tabs.addTab(self.login_pane, "连接")
+		self.tabs.addTab(self.inbound_pane, "入站管理")
+		self.tabs.addTab(self.monitor_pane, "监控")
+		self.tabs.addTab(self.log_pane, "日志")
+		layout = QVBoxLayout(self)
+		layout.addWidget(self.tabs)
+		self.xui: XUIClient | None = None
+		self.enh: EnhancedAPIClient | None = None
+		self.settings = QSettings("WCOJBK", "xui-enhanced-qt")
+		# wiring
+		self.login_pane.btn.clicked.connect(self.do_login)
+		self.inbound_pane.list_btn.clicked.connect(self.list_inbounds)
+		self.inbound_pane.create_btn.clicked.connect(self.create_vless_reality)
+		self.inbound_pane.gen_btn.clicked.connect(self.gen_reality_keys)
+		self.inbound_pane.server_gen_btn.clicked.connect(self.server_gen_reality_keys)
+		self.inbound_pane.copy_btn.clicked.connect(self.copy_vless_link)
+		self.inbound_pane.refresh_btn.clicked.connect(self.refresh_uuid_email)
+		self.inbound_pane.verify_btn.clicked.connect(self.verify_latest_inbound)
+		self.monitor_pane.refresh.clicked.connect(self.refresh_monitor)
+		self.log_pane.export_btn.clicked.connect(self.export_logs)
+		# load settings
+		self.load_settings()
+
+	def log(self, msg: str) -> None:
+		self.log_pane.out.append(msg)
+
+	def load_settings(self) -> None:
+		xui = self.settings.value("xui_base", "http://127.0.0.1:2053")
+		enh = self.settings.value("enh_base", "http://127.0.0.1:8080")
+		user = self.settings.value("user", "admin")
+		pwd = self.settings.value("pass", "")
+		remember = self.settings.value("remember", True, type=bool)
+		self.login_pane.xui_url.setText(xui)
+		self.login_pane.enh_url.setText(enh)
+		self.login_pane.user.setText(user)
+		if pwd:
+			self.login_pane.passwd.setText(pwd)
+		self.login_pane.remember.setChecked(remember)
+		self.log("已加载保存的连接配置")
+
+	def save_settings(self) -> None:
+		if not self.login_pane.remember.isChecked():
+			return
+		self.settings.setValue("xui_base", self.login_pane.xui_url.text().strip())
+		self.settings.setValue("enh_base", self.login_pane.enh_url.text().strip())
+		self.settings.setValue("user", self.login_pane.user.text().strip())
+		self.settings.setValue("pass", self.login_pane.passwd.text())
+		self.settings.setValue("remember", True)
+		self.log("已保存登录信息")
+
+	def do_login(self) -> None:
+		xui_base = self.login_pane.xui_url.text().strip()
+		enh_base = self.login_pane.enh_url.text().strip()
+		user = self.login_pane.user.text().strip()
+		pwd = self.login_pane.passwd.text().strip()
+		self.xui = XUIClient(xui_base)
+		ok = self.xui.login(user, pwd)
+		if ok:
+			self.enh = EnhancedAPIClient(enh_base)
+			self.login_pane.status.setText("登录成功")
+			self.log(f"登录成功: {xui_base}")
+			self.save_settings()
+		else:
+			self.login_pane.status.setText("登录失败")
+			self.log("登录失败，请检查账号/地址")
+
+	def list_inbounds(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		data = self.xui.list_inbounds()
+		self.inbound_pane.out.setPlainText(str(data))
+		self.log("已查询入站列表")
+
+	def gen_reality_keys(self) -> None:
+		if not _HAS_CRYPTO:
+			QMessageBox.warning(self, "提示", "缺少 cryptography 依赖，先执行: pip install cryptography")
+			self.log("生成密钥失败: 缺少 cryptography 依赖")
+			return
+		try:
+			# 方法1：使用标准X25519密钥生成
+			priv_obj = x25519.X25519PrivateKey.generate()
+			pub_obj = priv_obj.public_key()
+			
+			# 获取原始32字节
+			priv_bytes = priv_obj.private_bytes(
+				encoding=serialization.Encoding.Raw,
+				format=serialization.PrivateFormat.Raw,
+				encryption_algorithm=serialization.NoEncryption(),
+			)
+			pub_bytes = pub_obj.public_bytes(
+				encoding=serialization.Encoding.Raw,
+				format=serialization.PublicFormat.Raw,
+			)
+			
+			# 验证长度（X25519密钥必须是32字节）
+			if len(priv_bytes) != 32 or len(pub_bytes) != 32:
+				raise ValueError(f"密钥长度错误: 私钥{len(priv_bytes)}字节, 公钥{len(pub_bytes)}字节")
+			
+			# 转换为base64格式（与手动创建的格式一致）
+			import base64
+			priv_b64 = base64.b64encode(priv_bytes).decode('ascii')
+			pub_b64 = base64.b64encode(pub_bytes).decode('ascii')
+			
+			# 填入界面
+			self.inbound_pane.priv.setText(priv_b64)
+			self.inbound_pane.pub_out.setText(pub_b64)
+			
+			self.log(f"✅ 已生成Reality密钥对(Base64格式)")
+			self.log(f"🔑 私钥: {priv_b64[:16]}...{priv_b64[-16:]} (长度:{len(priv_b64)})")
+			self.log(f"🗝️  公钥: {pub_b64[:16]}...{pub_b64[-16:]} (长度:{len(pub_b64)})")
+			
+		except Exception as e:
+			QMessageBox.critical(self, "错误", f"生成密钥失败: {e}")
+			self.log(f"❌ 生成密钥失败: {e}")
+			# 调试信息
+			self.log(f"🔧 调试: _HAS_CRYPTO={_HAS_CRYPTO}")
+			import traceback
+			self.log(f"🔧 详细错误: {traceback.format_exc()}")
+
+	def copy_vless_link(self) -> None:
+		host = self.inbound_pane.host.text().strip() or self.inbound_pane.sni.text().strip()
+		port = int(self.inbound_pane.port.value())
+		uuid_str = self.inbound_pane.uuid.text().strip()
+		pub = self.inbound_pane.pub_out.text().strip()
+		sni = self.inbound_pane.sni.text().strip()
+		short_id = self.inbound_pane.short.text().strip()
+		remark = f"vless-reality-{port}"
+		if not (host and uuid_str and pub and sni and short_id):
+			QMessageBox.warning(self, "提示", "请先生成密钥并填写必填项(主机/UUID/SNI/shortId)")
+			self.log("复制失败: 信息不完整")
+			return
+		link = (
+			f"vless://{uuid_str}@{host}:{port}?type=tcp&security=reality&flow=xtls-rprx-vision"
+			f"&encryption=none&pbk={pub}&sni={sni}&fp=chrome&sid={short_id}#{remark}"
+		)
+		QApplication.clipboard().setText(link)
+		self.log(f"已复制VLESS链接到剪贴板: {link}")
+
+	def create_vless_reality(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		port = int(self.inbound_pane.port.value())
+		uuid_str = self.inbound_pane.uuid.text().strip() or gen_uuid()
+		sni = self.inbound_pane.sni.text().strip()
+		short_id = self.inbound_pane.short.text().strip() or gen_short()
+		priv = self.inbound_pane.priv.text().strip()
+		email = self.inbound_pane.email.text().strip() or "reality@example.com"
+		
+		# 新增: 获取流量控制和到期时间
+		total_gb = int(self.inbound_pane.total_gb.value())
+		expiry_days = int(self.inbound_pane.expiry_days.value())
+		limit_ip = int(self.inbound_pane.limit_ip.value())
+		
+		# 计算到期时间戳（毫秒）
+		expiry_time = 0
+		if expiry_days > 0:
+			import time
+			expiry_time = int((time.time() + expiry_days * 24 * 3600) * 1000)
+		
+		# 检查私钥和公钥
+		pub = self.inbound_pane.pub_out.text().strip()
+		
+		if not priv:
+			QMessageBox.warning(self, "提示", "请填写Reality私钥 (可点击'生成 Reality 密钥对'按钮)")
+			self.log("创建失败: 未填写私钥")
+			return
+			
+		if not pub:
+			# 如果没有公钥，尝试从私钥计算
+			if _HAS_CRYPTO:
+				try:
+					import base64
+					# 尝试base64解码
+					try:
+						priv_bytes = base64.b64decode(priv)
+					except:
+						# 如果base64失败，尝试hex解码
+						priv_bytes = bytes.fromhex(priv)
+					
+					priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+					pub_obj = priv_obj.public_key()
+					pub_bytes = pub_obj.public_bytes(
+						encoding=serialization.Encoding.Raw,
+						format=serialization.PublicFormat.Raw,
+					)
+					pub = base64.b64encode(pub_bytes).decode('ascii')
+					self.inbound_pane.pub_out.setText(pub)
+					self.log(f"🗝️  已从私钥计算公钥: {pub[:16]}...{pub[-16:]}")
+				except Exception as e:
+					QMessageBox.warning(self, "提示", f"私钥格式错误，请重新生成: {e}")
+					self.log(f"私钥验证失败: {e}")
+					return
+			else:
+				QMessageBox.warning(self, "提示", "请先点击'生成 Reality 密钥对'按钮生成完整密钥")
+				self.log("创建失败: 缺少公钥且无法计算")
+				return
+		
+		# 调试：记录发送的参数
+		self.log(f"🔧 发送参数: 端口={port}, SNI={sni}, UUID={uuid_str[:8]}..., shortId={short_id}")
+		
+		resp = self.xui.add_vless_reality(port, uuid_str, sni, priv, short_id, email, total_gb, expiry_time, limit_ip, pub)
+		self.inbound_pane.out.setPlainText(str(resp))
+		
+		if resp.get("success"):
+			self.log(f"✅ 创建成功: 端口{port}, SNI {sni}, 流量{total_gb}GB, 有效期{expiry_days}天")
+			
+			# 强制更新入站配置以包含公钥
+			try:
+				import json, base64
+				inbound_id = resp.get("obj", {}).get("id")
+				stream_settings = resp.get("obj", {}).get("streamSettings", "")
+				
+				if inbound_id and stream_settings and _HAS_CRYPTO:
+					stream_obj = json.loads(stream_settings)
+					reality_settings = stream_obj.get("realitySettings", {})
+					returned_private_key = reality_settings.get("privateKey", "")
+					
+					if returned_private_key:
+						# 从私钥计算公钥
+						priv_bytes = base64.b64decode(returned_private_key)
+						priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+						pub_obj = priv_obj.public_key()
+						pub_bytes = pub_obj.public_bytes(
+							encoding=serialization.Encoding.Raw,
+							format=serialization.PublicFormat.Raw,
+						)
+						pub_b64 = base64.b64encode(pub_bytes).decode('ascii')
+						
+						# 更新公钥显示
+						self.inbound_pane.pub_out.setText(pub_b64)
+						self.log(f"🗝️  已计算公钥: {pub_b64[:16]}...{pub_b64[-16:]}")
+						
+						# 强制更新入站配置，添加公钥到realitySettings
+						reality_settings["publicKey"] = pub_b64
+						stream_obj["realitySettings"] = reality_settings
+						
+						# 获取完整的入站配置进行更新
+						settings_obj = json.loads(resp.get("obj", {}).get("settings", "{}"))
+						sniffing_obj = json.loads(resp.get("obj", {}).get("sniffing", "{}"))
+						allocate_obj = {"concurrency": 3, "refresh": 5, "strategy": "always"}
+						
+						update_payload = {
+							"remark": f"vless-reality-{port}",
+							"enable": True,
+							"expiryTime": expiry_time,
+							"listen": "",
+							"port": port,
+							"protocol": "vless",
+							"settings": json.dumps(settings_obj),
+							"streamSettings": json.dumps(stream_obj),  # 包含公钥的配置
+							"sniffing": json.dumps(sniffing_obj),
+							"allocate": json.dumps(allocate_obj),
+						}
+						
+						# 更新入站
+						update_resp = self.xui.update_inbound(inbound_id, update_payload)
+						if update_resp.get("success"):
+							self.log(f"✅ 已更新入站配置，公钥已添加到面板")
+						else:
+							self.log(f"⚠️  更新入站失败: {update_resp.get('msg', '未知错误')}")
+							
+				self.log(f"📋 StreamSettings: {stream_settings}")
+			except Exception as e:
+				self.log(f"⚠️  处理入站配置失败: {e}")
+				import traceback
+				self.log(f"🔧 详细错误: {traceback.format_exc()}")
+		else:
+			self.log(f"❌ 创建失败: {resp.get('msg', '未知错误')}")
+
+	def refresh_monitor(self) -> None:
+		if not self.enh:
+			QMessageBox.information(self, "提示", "未配置增强API或未登录")
+			self.log("刷新监控失败: 未配置增强API")
+			return
+		try:
+			health = self.enh.health()
+			stats = self.enh.traffic_summary("week")
+			self.monitor_pane.out.setPlainText(f"Health:\n{health}\n\nStats(week):\n{stats}")
+			self.log("已刷新监控信息")
+		except Exception as e:
+			self.monitor_pane.out.setPlainText(f"获取失败: {e}")
+			self.log(f"刷新监控失败: {e}")
+
+	def refresh_uuid_email(self) -> None:
+		"""刷新UUID和Email避免重复冲突"""
+		new_uuid = gen_uuid()
+		new_email = f"reality_{secrets.randbelow(999999)}@example.com"
+		new_short = gen_short()
+		self.inbound_pane.uuid.setText(new_uuid)
+		self.inbound_pane.email.setText(new_email)
+		self.inbound_pane.short.setText(new_short)
+		self.log(f"已刷新: UUID={new_uuid[:8]}..., Email={new_email}, shortId={new_short}")
+
+	def verify_latest_inbound(self) -> None:
+		"""验证最新创建的入站配置"""
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		
+		try:
+			# 获取所有入站
+			data = self.xui.list_inbounds()
+			if not data or not isinstance(data, list):
+				self.log("❌ 无法获取入站列表")
+				return
+			
+			# 找到最新的入站（ID最大的）
+			latest_inbound = max(data, key=lambda x: x.get('id', 0))
+			inbound_id = latest_inbound.get('id')
+			port = latest_inbound.get('port')
+			stream_settings = latest_inbound.get('streamSettings', '')
+			
+			self.log(f"🔍 最新入站: ID={inbound_id}, 端口={port}")
+			self.log(f"📋 实际StreamSettings: {stream_settings}")
+			
+			# 解析streamSettings检查dest
+			import json
+			try:
+				stream_obj = json.loads(stream_settings) if isinstance(stream_settings, str) else stream_settings
+				reality_settings = stream_obj.get('realitySettings', {})
+				dest = reality_settings.get('dest', 'N/A')
+				server_names = reality_settings.get('serverNames', [])
+				self.log(f"📍 Target(dest): {dest}")
+				self.log(f"📍 ServerNames: {server_names}")
+			except Exception as e:
+				self.log(f"❌ 解析StreamSettings失败: {e}")
+				
+		except Exception as e:
+			self.log(f"❌ 验证失败: {e}")
+
+	def server_gen_reality_keys(self) -> None:
+		"""通过增强API在服务器上生成Reality密钥"""
+		if not self.enh:
+			QMessageBox.warning(self, "提示", "请先连接增强API")
+			self.log("服务器生成密钥失败: 未连接增强API")
+			return
+		
+		try:
+			# 通过增强API调用服务器xray命令生成密钥
+			resp = self.enh.session.get(f"{self.enh.base_url}/panel/api/enhanced/tools/generate-reality-keys")
+			if resp.ok:
+				data = resp.json()
+				if data.get("success"):
+					keys = data.get("data", {})
+					private_key = keys.get("privateKey", "")
+					public_key = keys.get("publicKey", "")
+					
+					if private_key and public_key:
+						self.inbound_pane.priv.setText(private_key)
+						self.inbound_pane.pub_out.setText(public_key)
+						self.log(f"✅ 服务器生成密钥成功")
+						self.log(f"🔑 私钥: {private_key[:16]}...{private_key[-16:]}")
+						self.log(f"🗝️  公钥: {public_key[:16]}...{public_key[-16:]}")
+					else:
+						self.log("❌ 服务器返回的密钥为空")
+				else:
+					self.log(f"❌ 服务器生成密钥失败: {data.get('msg', '未知错误')}")
+			else:
+				# 如果增强API不支持，回退到本地生成
+				self.log("⚠️  增强API不支持密钥生成，使用本地生成")
+				self.gen_reality_keys()
+		except Exception as e:
+			self.log(f"❌ 服务器生成密钥失败: {e}")
+			# 回退到本地生成
+			self.log("🔄 回退到本地生成密钥")
+			self.gen_reality_keys()
+
+	def export_logs(self) -> None:
+		path, _ = QFileDialog.getSaveFileName(self, "导出日志", "xui-enhanced-log.txt", "Text Files (*.txt)")
+		if not path:
+			return
+		with open(path, "w", encoding="utf-8") as f:
+			f.write(self.log_pane.out.toPlainText())
+		self.log(f"已导出日志到: {path}")
+
+if __name__ == "__main__":
+	app = QApplication(sys.argv)
+	w = MainWindow()
+	w.resize(960, 740)
+	w.show()
+	sys.exit(app.exec())

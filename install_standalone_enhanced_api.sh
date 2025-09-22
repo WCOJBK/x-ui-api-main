@@ -21,6 +21,7 @@ XUI_PORT=""
 API_DIR="/opt/x-ui-enhanced-api"
 SERVICE_NAME="x-ui-enhanced-api"
 GO_BIN="$(command -v go || echo /usr/local/go/bin/go)"
+UPGRADE_MODE=false
 
 # 日志函数
 log_info() {
@@ -130,8 +131,51 @@ check_3xui() {
     fi
 }
 
-# 检查端口占用
-check_port() {
+# 检查现有增强API安装
+check_existing_enhanced_api() {
+    log_info "检查现有增强API安装..."
+    
+    # 检查服务是否存在
+    if systemctl list-unit-files | grep -q "$SERVICE_NAME.service"; then
+        log_warning "检测到已安装的增强API服务"
+        
+        # 获取当前使用的端口
+        if [[ -f "/etc/systemd/system/$SERVICE_NAME.service" ]]; then
+            CURRENT_PORT=$(grep "Environment=API_PORT=" "/etc/systemd/system/$SERVICE_NAME.service" | cut -d= -f3 || echo "8080")
+            API_PORT=$CURRENT_PORT
+            log_info "检测到现有服务使用端口: $API_PORT"
+        fi
+        
+        # 检查服务状态
+        if systemctl is-active --quiet $SERVICE_NAME; then
+            log_info "增强API服务正在运行"
+            UPGRADE_MODE=true
+        else
+            log_warning "增强API服务已安装但未运行"
+            UPGRADE_MODE=true
+        fi
+        
+        echo
+        log_warning "检测到现有安装，将进行升级更新："
+        echo "  ✅ 保持现有端口: $API_PORT"
+        echo "  ✅ 保留现有配置"
+        echo "  ✅ 升级服务代码"
+        echo "  ✅ 添加新功能"
+        echo
+        read -p "是否继续升级？(y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "升级已取消"
+            exit 0
+        fi
+    else
+        UPGRADE_MODE=false
+        check_port_availability
+    fi
+}
+
+# 检查端口占用（仅新安装时使用）
+check_port_availability() {
     log_info "检查端口 $API_PORT 是否可用..."
     
     if netstat -tlnp 2>/dev/null | grep -q ":$API_PORT "; then
@@ -207,14 +251,31 @@ install_go() {
 
 # 创建增强API服务
 create_enhanced_api() {
-    log_info "创建增强API服务..."
-    
-    # 清理旧安装
-    if [[ -d "$API_DIR" ]]; then
-        log_info "清理旧安装..."
+    if [[ "$UPGRADE_MODE" == true ]]; then
+        log_info "升级增强API服务..."
+        
+        # 停止现有服务
         systemctl stop $SERVICE_NAME 2>/dev/null || true
-        systemctl disable $SERVICE_NAME 2>/dev/null || true
-        rm -rf "$API_DIR"
+        
+        # 备份现有配置
+        if [[ -d "$API_DIR" ]]; then
+            BACKUP_DIR="/tmp/x-ui-enhanced-api-backup-$(date +%Y%m%d_%H%M%S)"
+            cp -r "$API_DIR" "$BACKUP_DIR"
+            log_info "已备份现有配置到: $BACKUP_DIR"
+        fi
+        
+        # 清理旧代码，保留配置
+        rm -f "$API_DIR/main.go" "$API_DIR/go.mod" "$API_DIR/$SERVICE_NAME"
+    else
+        log_info "创建增强API服务..."
+        
+        # 清理旧安装
+        if [[ -d "$API_DIR" ]]; then
+            log_info "清理旧安装..."
+            systemctl stop $SERVICE_NAME 2>/dev/null || true
+            systemctl disable $SERVICE_NAME 2>/dev/null || true
+            rm -rf "$API_DIR"
+        fi
     fi
     
     # 创建服务目录
@@ -587,6 +648,91 @@ func getPerformanceMetrics(c *gin.Context) {
     })
 }
 
+func generateRealityKeys(c *gin.Context) {
+    // 尝试调用系统的xray命令生成密钥
+    import "os/exec"
+    
+    // 查找xray可执行文件
+    xrayPaths := []string{
+        "/usr/local/x-ui/bin/xray",
+        "/usr/local/bin/xray", 
+        "/usr/bin/xray",
+        "xray",
+    }
+    
+    var xrayCmd string
+    for _, path := range xrayPaths {
+        if _, err := os.Stat(path); err == nil {
+            xrayCmd = path
+            break
+        }
+    }
+    
+    if xrayCmd == "" {
+        // 如果找不到xray，尝试用PATH查找
+        if _, err := exec.LookPath("xray"); err == nil {
+            xrayCmd = "xray"
+        }
+    }
+    
+    if xrayCmd == "" {
+        c.JSON(500, gin.H{
+            "success": false,
+            "msg": "服务器上未找到xray可执行文件",
+        })
+        return
+    }
+    
+    // 执行xray x25519命令
+    cmd := exec.Command(xrayCmd, "x25519")
+    output, err := cmd.Output()
+    if err != nil {
+        c.JSON(500, gin.H{
+            "success": false,
+            "msg": fmt.Sprintf("执行xray x25519失败: %v", err),
+        })
+        return
+    }
+    
+    // 解析输出
+    lines := strings.Split(string(output), "\n")
+    var privateKey, publicKey string
+    
+    for _, line := range lines {
+        if strings.Contains(line, "Private key:") {
+            parts := strings.Fields(line)
+            if len(parts) >= 3 {
+                privateKey = parts[2]
+            }
+        }
+        if strings.Contains(line, "Public key:") {
+            parts := strings.Fields(line)
+            if len(parts) >= 3 {
+                publicKey = parts[2]
+            }
+        }
+    }
+    
+    if privateKey == "" || publicKey == "" {
+        c.JSON(500, gin.H{
+            "success": false,
+            "msg": "解析xray输出失败",
+            "output": string(output),
+        })
+        return
+    }
+    
+    c.JSON(200, gin.H{
+        "success": true,
+        "data": gin.H{
+            "privateKey": privateKey,
+            "publicKey": publicKey,
+            "method": "xray x25519",
+            "timestamp": time.Now().Unix(),
+        },
+    })
+}
+
 // 设置路由
 func setupRoutes() *gin.Engine {
     gin.SetMode(gin.ReleaseMode)
@@ -688,6 +834,12 @@ func setupRoutes() *gin.Engine {
         {
             monitor.GET("/health/system", getSystemHealth)
             monitor.GET("/performance/metrics", getPerformanceMetrics)
+        }
+        
+        // 工具API
+        tools := api.Group("/tools")
+        {
+            tools.GET("/generate-reality-keys", generateRealityKeys)
         }
     }
     
@@ -1062,7 +1214,7 @@ main() {
     detect_system
     install_dependencies
     check_3xui
-    check_port
+    check_existing_enhanced_api  # 新增：检查现有安装
     install_go
     create_enhanced_api
     compile_service
@@ -1079,7 +1231,17 @@ main() {
     sleep 2
     /tmp/test_enhanced_api.sh
     
-    log_success "🎉 3X-UI增强API服务安装完成！"
+    if [[ "$UPGRADE_MODE" == true ]]; then
+        log_success "🎉 3X-UI增强API服务升级完成！"
+        echo
+        log_info "🆕 升级内容："
+        echo "   ✅ 新增服务器端Reality密钥生成API"
+        echo "   ✅ 优化入站创建格式兼容性" 
+        echo "   ✅ 增强错误处理和日志记录"
+        echo "   ✅ 保持原有端口和配置不变"
+    else
+        log_success "🎉 3X-UI增强API服务安装完成！"
+    fi
 }
 
 # 处理命令行参数
