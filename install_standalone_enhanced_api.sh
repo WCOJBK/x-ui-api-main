@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.1 - 出站和路由管理模拟端点版 (修复编译)
+# 版本: 2.2.2 - 出站和路由管理模拟端点版 (修复配置获取)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -382,7 +382,7 @@ type XrayConfig struct {
 func getXrayConfig(client *http.Client) (*XrayConfig, error) {
 	req, err := http.NewRequest("POST", config.XUIBaseURL+"/panel/xray/", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request failed: %v", err)
 	}
 	
 	req.Header.Set("Content-Type", "application/json")
@@ -390,35 +390,77 @@ func getXrayConfig(client *http.Client) (*XrayConfig, error) {
 	
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 	
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read response failed: %v", err)
+	}
+	
+	// 调试：记录响应内容
+	log.Printf("Xray config response: status=%d, body=%s", resp.StatusCode, string(body))
+	
+	// 检查响应体是否为空
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty response body from %s", config.XUIBaseURL+"/panel/xray/")
 	}
 	
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse JSON failed: %v, body: %s", err, string(body))
 	}
 	
-	if !result["success"].(bool) {
-		return nil, fmt.Errorf("failed to get xray config: %v", result["msg"])
+	// 检查success字段
+	success, ok := result["success"]
+	if !ok {
+		return nil, fmt.Errorf("missing success field in response: %s", string(body))
+	}
+	
+	if !success.(bool) {
+		return nil, fmt.Errorf("API returned error: %v", result["msg"])
+	}
+	
+	// 检查obj字段
+	obj, ok := result["obj"]
+	if !ok {
+		return nil, fmt.Errorf("missing obj field in response: %s", string(body))
+	}
+	
+	configStr, ok := obj.(string)
+	if !ok {
+		return nil, fmt.Errorf("obj field is not string: %T", obj)
+	}
+	
+	if configStr == "" {
+		return nil, fmt.Errorf("empty config string from API")
 	}
 	
 	// 解析返回的配置
-	configStr := result["obj"].(string)
 	var configData map[string]interface{}
 	if err := json.Unmarshal([]byte(configStr), &configData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse config JSON failed: %v, config: %s", err, configStr)
 	}
 	
-	xraySettingStr := configData["xraySetting"].(string)
+	// 检查xraySetting字段
+	xraySettingRaw, ok := configData["xraySetting"]
+	if !ok {
+		return nil, fmt.Errorf("missing xraySetting field in config: %s", configStr)
+	}
+	
+	xraySettingStr, ok := xraySettingRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("xraySetting is not string: %T", xraySettingRaw)
+	}
+	
+	if xraySettingStr == "" {
+		return nil, fmt.Errorf("empty xraySetting string")
+	}
+	
 	var xrayConfig XrayConfig
 	if err := json.Unmarshal([]byte(xraySettingStr), &xrayConfig); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse xray config failed: %v, xraySetting: %s", err, xraySettingStr)
 	}
 	
 	return &xrayConfig, nil
@@ -1660,7 +1702,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.1",
+            "version":   "2.2.2",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1669,7 +1711,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.1",
+            "version": "2.2.2",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -2159,7 +2201,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.1"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.2"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2192,7 +2234,7 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.1)："
+        log_info "🆕 升级内容 (v2.2.2)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
