@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.3 - 出站和路由管理模拟端点版 (修复basePath配置)
+# 版本: 2.2.4 - 出站和路由管理模拟端点版 (自动配置检测)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -1702,7 +1702,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.3",
+            "version":   "2.2.4",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1711,7 +1711,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.3",
+            "version": "2.2.4",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -1935,9 +1935,84 @@ compile_service() {
     log_success "编译完成"
 }
 
+# 自动检测3X-UI配置
+detect_xui_config() {
+    log_info "🔍 自动检测3X-UI配置..."
+    
+    # 检测数据库路径
+    local db_path=""
+    for possible_path in "/etc/x-ui/x-ui.db" "/usr/local/x-ui/x-ui.db" "/opt/x-ui/x-ui.db"; do
+        if [[ -f "$possible_path" ]]; then
+            db_path="$possible_path"
+            break
+        fi
+    done
+    
+    # 如果找不到数据库，使用默认路径
+    if [[ -z "$db_path" ]]; then
+        db_path="/usr/local/x-ui/x-ui.db"
+    fi
+    
+    # 检测3X-UI端口
+    local xui_port=""
+    if [[ -f "$db_path" ]]; then
+        # 从数据库读取端口
+        xui_port=$(sqlite3 "$db_path" "SELECT value FROM settings WHERE key='webPort';" 2>/dev/null || echo "")
+    fi
+    
+    # 如果数据库读取失败，尝试从进程中检测
+    if [[ -z "$xui_port" ]]; then
+        xui_port=$(netstat -tlnp 2>/dev/null | grep x-ui | head -1 | sed -n 's/.*:\([0-9]*\) .*/\1/p')
+    fi
+    
+    # 默认端口
+    if [[ -z "$xui_port" ]]; then
+        xui_port="54321"
+    fi
+    
+    # 检测basePath
+    local base_path=""
+    if [[ -f "$db_path" ]]; then
+        base_path=$(sqlite3 "$db_path" "SELECT value FROM settings WHERE key='webBasePath';" 2>/dev/null || echo "")
+    fi
+    
+    # 检测用户名和密码
+    local username=""
+    local password=""
+    if [[ -f "$db_path" ]]; then
+        username=$(sqlite3 "$db_path" "SELECT username FROM users LIMIT 1;" 2>/dev/null || echo "")
+        password=$(sqlite3 "$db_path" "SELECT password FROM users LIMIT 1;" 2>/dev/null || echo "")
+    fi
+    
+    # 构建完整的XUI_BASE_URL
+    local xui_base_url="http://localhost:${xui_port}"
+    if [[ -n "$base_path" && "$base_path" != "/" ]]; then
+        # 确保basePath以/开头但不以/结尾
+        base_path=$(echo "$base_path" | sed 's|^/*|/|' | sed 's|/*$||')
+        xui_base_url="${xui_base_url}${base_path}"
+    fi
+    
+    log_info "✅ 检测到的配置:"
+    log_info "   端口: $xui_port"
+    log_info "   BasePath: ${base_path:-"(无)"}"
+    log_info "   完整URL: $xui_base_url"
+    log_info "   数据库路径: $db_path"
+    log_info "   用户名: ${username:-"(未检测到)"}"
+    log_info "   密码: ${password:+已检测到}"
+    
+    # 导出环境变量供后续使用
+    export DETECTED_XUI_BASE_URL="$xui_base_url"
+    export DETECTED_DB_PATH="$db_path"
+    export DETECTED_PANEL_USER="$username"
+    export DETECTED_PANEL_PASS="$password"
+}
+
 # 创建systemd服务
 create_systemd_service() {
     log_info "创建systemd服务..."
+    
+    # 自动检测3X-UI配置
+    detect_xui_config
     
     cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
@@ -1952,10 +2027,10 @@ User=root
 WorkingDirectory=$API_DIR
 ExecStart=$API_DIR/$SERVICE_NAME
 Environment=API_PORT=$API_PORT
-Environment=XUI_BASE_URL=http://localhost:$XUI_PORT
-Environment=DB_PATH=/usr/local/x-ui/x-ui.db
-Environment=PANEL_USER=
-Environment=PANEL_PASS=
+Environment=XUI_BASE_URL=$DETECTED_XUI_BASE_URL
+Environment=DB_PATH=$DETECTED_DB_PATH
+Environment=PANEL_USER=$DETECTED_PANEL_USER
+Environment=PANEL_PASS=$DETECTED_PANEL_PASS
 Restart=on-failure
 RestartSec=5
 KillMode=mixed
@@ -2210,7 +2285,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.3"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.4"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2243,12 +2318,14 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.3)："
+        log_info "🆕 升级内容 (v2.2.4)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
         echo "   ✅ 支持直接操作Xray配置文件"
         echo "   ✅ 增强Python客户端自动检测功能"
+        echo "   ✅ 自动检测3X-UI配置 (端口/basePath/用户名/密码)"
+        echo "   ✅ 修复systemd服务路径问题"
         echo "   ✅ 保持原有端口和配置不变"
     else
         log_success "🎉 3X-UI增强API服务安装完成！"
