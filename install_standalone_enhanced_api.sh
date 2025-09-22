@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.2 - 出站和路由管理模拟端点版 (修复配置获取)
+# 版本: 2.2.3 - 出站和路由管理模拟端点版 (修复basePath配置)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -1702,7 +1702,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.2",
+            "version":   "2.2.3",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1711,7 +1711,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.2",
+            "version": "2.2.3",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -1954,6 +1954,8 @@ ExecStart=$API_DIR/$SERVICE_NAME
 Environment=API_PORT=$API_PORT
 Environment=XUI_BASE_URL=http://localhost:$XUI_PORT
 Environment=DB_PATH=/usr/local/x-ui/x-ui.db
+Environment=PANEL_USER=
+Environment=PANEL_PASS=
 Restart=on-failure
 RestartSec=5
 KillMode=mixed
@@ -2166,9 +2168,16 @@ show_completion_info() {
     echo "     GET /panel/api/enhanced/monitor/performance/metrics"
     echo ""
     
+    echo -e "${CYAN}⚠️  重要配置:${NC}"
+    echo "   如果你的3X-UI使用了basePath，需要配置完整URL："
+    echo "   export XUI_BASE_URL=\"http://localhost:$XUI_PORT/your_base_path\""
+    echo "   export PANEL_USER=\"your_username\""
+    echo "   export PANEL_PASS=\"your_password\""
+    echo "   sudo systemctl restart $SERVICE_NAME"
+    echo ""
     echo -e "${CYAN}⚠️  重要提醒:${NC}"
     echo "   1. 请确保防火墙允许端口 $API_PORT"
-    echo "   2. 如需修改端口，请编辑 /etc/systemd/system/$SERVICE_NAME.service"
+    echo "   2. 如需修改配置，请编辑 /etc/systemd/system/$SERVICE_NAME.service"
     echo "   3. 服务会随系统自动启动"
     echo "   4. 日志位置: journalctl -u $SERVICE_NAME"
     echo ""
@@ -2201,7 +2210,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.2"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.3"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2234,7 +2243,7 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.2)："
+        log_info "🆕 升级内容 (v2.2.3)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
