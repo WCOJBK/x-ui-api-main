@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.0.0
+# 版本: 2.1.0
 # 适用于二进制安装版本的3X-UI
 
 set -e

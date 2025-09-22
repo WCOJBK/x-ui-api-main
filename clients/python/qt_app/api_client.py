@@ -345,3 +345,43 @@ class EnhancedAPIClient:
 		resp = self.session.post(f"{self.base_url}/panel/api/enhanced/tools/validate-reality-keys", 
 								json={"privateKey": private_key, "publicKey": public_key})
 		return resp.json() if resp.ok else {"success": False, "msg": resp.text}
+
+	# ---------- Proxy endpoints to original panel APIs ----------
+	def _proxy_post(self, group: str, path: str, payload: dict | None = None) -> dict:
+		url = f"{self.base_url}/panel/api/enhanced/tools/proxy/{group}/{path.lstrip('/')}"
+		try:
+			resp = self.session.post(url, json=payload)
+			return resp.json() if resp.ok else {"success": False, "msg": resp.text, "status": resp.status_code, "url": url}
+		except Exception as e:
+			return {"success": False, "msg": str(e), "url": url}
+
+	# Outbounds via proxy
+	def proxy_outbounds_list(self) -> dict:
+		# full original path is /panel/api/outbounds/outbound/list
+		return self._proxy_post("outbounds", "outbounds/outbound/list")
+
+	def proxy_outbounds_add(self, outbound: dict) -> dict:
+		return self._proxy_post("outbounds", "outbounds/outbound/add", outbound)
+
+	def proxy_outbounds_update(self, tag: str, outbound: dict) -> dict:
+		return self._proxy_post("outbounds", f"outbounds/outbound/update/{tag}", outbound)
+
+	def proxy_outbounds_delete(self, tag: str) -> dict:
+		return self._proxy_post("outbounds", f"outbounds/outbound/del/{tag}")
+
+	# Routing via proxy
+	def proxy_routing_get(self) -> dict:
+		# full original path is /panel/api/routing/routing/get
+		return self._proxy_post("routing", "routing/routing/get")
+
+	def proxy_routing_update(self, routing: dict) -> dict:
+		return self._proxy_post("routing", "routing/routing/update", routing)
+
+	def proxy_routing_add_rule(self, rule: dict) -> dict:
+		return self._proxy_post("routing", "routing/routing/rule/add", rule)
+
+	def proxy_routing_delete_rule(self, index: int) -> dict:
+		return self._proxy_post("routing", "routing/routing/rule/del", index)
+
+	def proxy_routing_update_rule(self, index: int, rule: dict) -> dict:
+		return self._proxy_post("routing", "routing/routing/rule/update", {"index": index, "rule": rule})

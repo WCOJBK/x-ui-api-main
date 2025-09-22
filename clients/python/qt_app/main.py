@@ -829,7 +829,11 @@ class MainWindow(QWidget):
 		if not self.xui:
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
-		resp = self.xui.list_outbounds()
+		# 优先走增强API代理
+		if self.enh:
+			resp = self.enh.proxy_outbounds_list()
+		else:
+			resp = self.xui.list_outbounds()
 		self.outbound_pane.out.setPlainText(str(resp))
 		self.log("已刷新出站列表")
 
@@ -857,6 +861,12 @@ class MainWindow(QWidget):
 				except Exception:
 					# 忽略解析失败，使用最小payload
 					pass
+		# 记录详细日志
+		self.log(f"[新增出站][payload]={payload}")
+		# 优先走增强API代理
+		if self.enh:
+			resp = self.enh.proxy_outbounds_add(payload)
+		else:
 			resp = self.xui.add_outbound(payload)
 			self.log(str(resp))
 		except Exception as e:
@@ -884,6 +894,10 @@ class MainWindow(QWidget):
 							payload.update(body_obj)
 				except Exception:
 					pass
+		self.log(f"[更新出站][tag]={tag} [payload]={payload}")
+		if self.enh:
+			resp = self.enh.proxy_outbounds_update(tag or payload.get("tag"), payload)
+		else:
 			resp = self.xui.update_outbound(tag or payload.get("tag"), payload)
 			self.log(str(resp))
 		except Exception as e:
@@ -894,7 +908,11 @@ class MainWindow(QWidget):
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
 		tag = self.outbound_pane.tag.text().strip()
-		resp = self.xui.delete_outbound(tag)
+		self.log(f"[删除出站][tag]={tag}")
+		if self.enh:
+			resp = self.enh.proxy_outbounds_delete(tag)
+		else:
+			resp = self.xui.delete_outbound(tag)
 		self.log(str(resp))
 
 	def parse_and_fill_outbound(self) -> None:
@@ -937,7 +955,10 @@ class MainWindow(QWidget):
 		if not self.xui:
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
-		resp = self.xui.get_routing()
+		if self.enh:
+			resp = self.enh.proxy_routing_get()
+		else:
+			resp = self.xui.get_routing()
 		self.routing_pane.out.setPlainText(str(resp))
 		# 尝试把 data 渲染到可编辑框
 		try:
@@ -955,6 +976,10 @@ class MainWindow(QWidget):
 		try:
 			import json
 			routing_obj = json.loads(self.routing_pane.routing.toPlainText() or "{}")
+		self.log(f"[更新路由][payload]={routing_obj}")
+		if self.enh:
+			resp = self.enh.proxy_routing_update(routing_obj)
+		else:
 			resp = self.xui.update_routing(routing_obj)
 			self.log(str(resp))
 		except Exception as e:
@@ -967,6 +992,10 @@ class MainWindow(QWidget):
 		try:
 			import json
 			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
+		self.log(f"[新增规则][payload]={rule_obj}")
+		if self.enh:
+			resp = self.enh.proxy_routing_add_rule(rule_obj)
+		else:
 			resp = self.xui.add_route_rule(rule_obj)
 			self.log(str(resp))
 		except Exception as e:
@@ -977,7 +1006,11 @@ class MainWindow(QWidget):
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
 		idx = int(self.routing_pane.rule_index.value())
-		resp = self.xui.delete_route_rule(idx)
+		self.log(f"[删除规则][index]={idx}")
+		if self.enh:
+			resp = self.enh.proxy_routing_delete_rule(idx)
+		else:
+			resp = self.xui.delete_route_rule(idx)
 		self.log(str(resp))
 
 	def update_route_rule(self) -> None:
@@ -988,6 +1021,10 @@ class MainWindow(QWidget):
 			import json
 			idx = int(self.routing_pane.rule_index.value())
 			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
+		self.log(f"[更新规则][index]={idx} [payload]={rule_obj}")
+		if self.enh:
+			resp = self.enh.proxy_routing_update_rule(idx, rule_obj)
+		else:
 			resp = self.xui.update_route_rule(idx, rule_obj)
 			self.log(str(resp))
 		except Exception as e:
