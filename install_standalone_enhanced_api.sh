@@ -304,7 +304,9 @@ import (
     "fmt"
     "log"
     "os"
+    "os/exec"
     "strconv"
+    "strings"
     "time"
 
     "github.com/gin-contrib/cors"
@@ -650,7 +652,6 @@ func getPerformanceMetrics(c *gin.Context) {
 
 func generateRealityKeys(c *gin.Context) {
     // 尝试调用系统的xray命令生成密钥
-    import "os/exec"
     
     // 查找xray可执行文件
     xrayPaths := []string{
