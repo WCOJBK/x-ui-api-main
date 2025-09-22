@@ -290,7 +290,8 @@ class MainWindow(QWidget):
 		enh_base = self.login_pane.enh_url.text().strip()
 		user = self.login_pane.user.text().strip()
 		pwd = self.login_pane.passwd.text().strip()
-		self.xui = XUIClient(xui_base)
+		# 传递增强API地址给XUIClient，用于出站和路由管理
+		self.xui = XUIClient(xui_base, enhanced_api_url=enh_base)
 		ok = self.xui.login(user, pwd)
 		if ok:
 			self.enh = EnhancedAPIClient(enh_base)
@@ -829,12 +830,15 @@ class MainWindow(QWidget):
 		if not self.xui:
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
-		# 优先走增强API代理
-		if self.enh:
-			resp = self.enh.proxy_outbounds_list()
-		else:
-			resp = self.xui.list_outbounds()
+		resp = self.xui.list_outbounds()
 		self.outbound_pane.out.setPlainText(str(resp))
+		# 打印详细HTTP调试信息
+		try:
+			import json
+			debug = self.xui.get_last_http_debug()
+			self.log(f"[HTTP][刷新出站] {json.dumps(debug, ensure_ascii=False)}")
+		except Exception:
+			self.log("[HTTP][刷新出站] 无调试信息")
 		self.log("已刷新出站列表")
 
 	def add_outbound(self) -> None:
@@ -861,14 +865,16 @@ class MainWindow(QWidget):
 				except Exception:
 					# 忽略解析失败，使用最小payload
 					pass
-		# 记录详细日志
-		self.log(f"[新增出站][payload]={payload}")
-		# 优先走增强API代理
-		if self.enh:
-			resp = self.enh.proxy_outbounds_add(payload)
-		else:
+			# 记录详细日志
+			self.log(f"[新增出站][payload]={payload}")
 			resp = self.xui.add_outbound(payload)
 			self.log(str(resp))
+			# 打印详细HTTP调试信息
+			try:
+				debug = self.xui.get_last_http_debug()
+				self.log(f"[HTTP][新增出站] {json.dumps(debug, ensure_ascii=False)}")
+			except Exception:
+				self.log("[HTTP][新增出站] 无调试信息")
 		except Exception as e:
 			self.log(f"新增出站失败: {e}")
 
@@ -894,12 +900,14 @@ class MainWindow(QWidget):
 							payload.update(body_obj)
 				except Exception:
 					pass
-		self.log(f"[更新出站][tag]={tag} [payload]={payload}")
-		if self.enh:
-			resp = self.enh.proxy_outbounds_update(tag or payload.get("tag"), payload)
-		else:
+			self.log(f"[更新出站][tag]={tag} [payload]={payload}")
 			resp = self.xui.update_outbound(tag or payload.get("tag"), payload)
 			self.log(str(resp))
+			try:
+				debug = self.xui.get_last_http_debug()
+				self.log(f"[HTTP][更新出站] {json.dumps(debug, ensure_ascii=False)}")
+			except Exception:
+				self.log("[HTTP][更新出站] 无调试信息")
 		except Exception as e:
 			self.log(f"更新出站失败: {e}")
 
@@ -909,11 +917,14 @@ class MainWindow(QWidget):
 			return
 		tag = self.outbound_pane.tag.text().strip()
 		self.log(f"[删除出站][tag]={tag}")
-		if self.enh:
-			resp = self.enh.proxy_outbounds_delete(tag)
-		else:
-			resp = self.xui.delete_outbound(tag)
+		resp = self.xui.delete_outbound(tag)
 		self.log(str(resp))
+		try:
+			import json
+			debug = self.xui.get_last_http_debug()
+			self.log(f"[HTTP][删除出站] {json.dumps(debug, ensure_ascii=False)}")
+		except Exception:
+			self.log("[HTTP][删除出站] 无调试信息")
 
 	def parse_and_fill_outbound(self) -> None:
 		"""解析格式 host:port:user:pass 或 host:port:user-ip-1.2.3.4:pass 填充为HTTP出站JSON"""
@@ -955,10 +966,7 @@ class MainWindow(QWidget):
 		if not self.xui:
 			QMessageBox.warning(self, "提示", "请先登录")
 			return
-		if self.enh:
-			resp = self.enh.proxy_routing_get()
-		else:
-			resp = self.xui.get_routing()
+		resp = self.xui.get_routing()
 		self.routing_pane.out.setPlainText(str(resp))
 		# 尝试把 data 渲染到可编辑框
 		try:
@@ -976,10 +984,7 @@ class MainWindow(QWidget):
 		try:
 			import json
 			routing_obj = json.loads(self.routing_pane.routing.toPlainText() or "{}")
-		self.log(f"[更新路由][payload]={routing_obj}")
-		if self.enh:
-			resp = self.enh.proxy_routing_update(routing_obj)
-		else:
+			self.log(f"[更新路由][payload]={routing_obj}")
 			resp = self.xui.update_routing(routing_obj)
 			self.log(str(resp))
 		except Exception as e:
@@ -992,10 +997,7 @@ class MainWindow(QWidget):
 		try:
 			import json
 			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
-		self.log(f"[新增规则][payload]={rule_obj}")
-		if self.enh:
-			resp = self.enh.proxy_routing_add_rule(rule_obj)
-		else:
+			self.log(f"[新增规则][payload]={rule_obj}")
 			resp = self.xui.add_route_rule(rule_obj)
 			self.log(str(resp))
 		except Exception as e:
@@ -1007,10 +1009,7 @@ class MainWindow(QWidget):
 			return
 		idx = int(self.routing_pane.rule_index.value())
 		self.log(f"[删除规则][index]={idx}")
-		if self.enh:
-			resp = self.enh.proxy_routing_delete_rule(idx)
-		else:
-			resp = self.xui.delete_route_rule(idx)
+		resp = self.xui.delete_route_rule(idx)
 		self.log(str(resp))
 
 	def update_route_rule(self) -> None:
@@ -1021,10 +1020,7 @@ class MainWindow(QWidget):
 			import json
 			idx = int(self.routing_pane.rule_index.value())
 			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
-		self.log(f"[更新规则][index]={idx} [payload]={rule_obj}")
-		if self.enh:
-			resp = self.enh.proxy_routing_update_rule(idx, rule_obj)
-		else:
+			self.log(f"[更新规则][index]={idx} [payload]={rule_obj}")
 			resp = self.xui.update_route_rule(idx, rule_obj)
 			self.log(str(resp))
 		except Exception as e:
