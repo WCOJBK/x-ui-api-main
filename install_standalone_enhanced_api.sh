@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.2.5 - 出站和路由管理模拟端点版 (修复xraySetting解析)
+# 版本: 2.2.6 - 出站和路由管理模拟端点版 (增强JSON处理和调试)
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -479,10 +479,21 @@ func getXrayConfig(client *http.Client) (*XrayConfig, error) {
 
 // setXrayConfig 设置Xray配置 (模拟 XrayService.SetXrayConfig)
 func setXrayConfig(client *http.Client, xrayConfig *XrayConfig) error {
+	// 序列化Xray配置，使用紧凑格式避免格式问题
 	configBytes, err := json.Marshal(xrayConfig)
 	if err != nil {
-		return err
+		log.Printf("Failed to marshal xray config: %v", err)
+		return fmt.Errorf("marshal xray config failed: %v", err)
 	}
+	
+	// 验证生成的JSON是否有效
+	var testConfig interface{}
+	if err := json.Unmarshal(configBytes, &testConfig); err != nil {
+		log.Printf("Generated invalid JSON: %s", string(configBytes))
+		return fmt.Errorf("generated invalid xray config JSON: %v", err)
+	}
+	
+	log.Printf("Xray config to send: %s", string(configBytes))
 	
 	reqData := map[string]string{
 		"xraySetting": string(configBytes),
@@ -490,12 +501,14 @@ func setXrayConfig(client *http.Client, xrayConfig *XrayConfig) error {
 	
 	reqBytes, err := json.Marshal(reqData)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal request data failed: %v", err)
 	}
+	
+	log.Printf("Request data: %s", string(reqBytes))
 	
 	req, err := http.NewRequest("POST", config.XUIBaseURL+"/panel/xray/update", bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return err
+		return fmt.Errorf("create request failed: %v", err)
 	}
 	
 	req.Header.Set("Content-Type", "application/json")
@@ -503,21 +516,32 @@ func setXrayConfig(client *http.Client, xrayConfig *XrayConfig) error {
 	
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 	
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("read response failed: %v", err)
+	}
+	
+	log.Printf("Update response: status=%d, body=%s", resp.StatusCode, string(body))
+	
+	if len(body) == 0 {
+		return fmt.Errorf("empty response from update endpoint")
 	}
 	
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return err
+		return fmt.Errorf("parse response JSON failed: %v, body: %s", err, string(body))
 	}
 	
-	if !result["success"].(bool) {
+	success, ok := result["success"]
+	if !ok {
+		return fmt.Errorf("missing success field in response: %s", string(body))
+	}
+	
+	if !success.(bool) {
 		return fmt.Errorf("failed to set xray config: %v", result["msg"])
 	}
 	
@@ -1713,7 +1737,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.2.5",
+            "version":   "2.2.6",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1722,7 +1746,7 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.2.5",
+            "version": "2.2.6",
             "versionName": "出站和路由管理模拟端点版",
             "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
@@ -2296,7 +2320,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.2.5"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.6"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2329,7 +2353,7 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容 (v2.2.5)："
+        log_info "🆕 升级内容 (v2.2.6)："
         echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
         echo "   ✅ 完整的前端操作模拟功能"
         echo "   ✅ 解决原生面板404错误兼容性问题"
@@ -2338,6 +2362,7 @@ main() {
         echo "   ✅ 自动检测3X-UI配置 (端口/basePath/用户名/密码)"
         echo "   ✅ 修复systemd服务路径问题"
         echo "   ✅ 修复xraySetting字段解析兼容性问题"
+        echo "   ✅ 增强JSON处理和调试日志输出"
         echo "   ✅ 保持原有端口和配置不变"
     else
         log_success "🎉 3X-UI增强API服务安装完成！"
