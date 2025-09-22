@@ -302,6 +302,7 @@ package main
 
 import (
     "encoding/base64"
+    "encoding/json"
     "bytes"
     "fmt"
     "io"
