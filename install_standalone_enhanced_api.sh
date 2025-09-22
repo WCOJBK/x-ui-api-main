@@ -2,7 +2,7 @@
 
 # 3X-UI 独立增强API服务安装脚本
 # Standalone Enhanced API Service Installer for 3X-UI
-# 版本: 2.1.0
+# 版本: 2.2.0 - 出站和路由管理模拟端点版
 # 适用于二进制安装版本的3X-UI
 
 set -e
@@ -1659,7 +1659,7 @@ func setupRoutes() *gin.Engine {
         c.JSON(200, gin.H{
             "status":    "ok",
             "service":   "x-ui-enhanced-api",
-            "version":   "2.0.0",
+            "version":   "2.2.0",
             "timestamp": time.Now().Unix(),
         })
     })
@@ -1668,9 +1668,18 @@ func setupRoutes() *gin.Engine {
     r.GET("/info", func(c *gin.Context) {
         c.JSON(200, gin.H{
             "service": "3X-UI Enhanced API",
-            "version": "2.0.0",
+            "version": "2.2.0",
+            "versionName": "出站和路由管理模拟端点版",
+            "releaseDate": "2025-09-22",
             "author":  "WCOJBK",
             "github":  "https://github.com/WCOJBK/x-ui-api-main",
+            "newFeatures": []string{
+                "出站管理模拟端点 (list/add/update/delete)",
+                "路由管理模拟端点 (get/update)",
+                "路由规则管理 (add/delete/update)",
+                "前端操作完全模拟",
+                "解决原生面板404兼容性问题",
+            },
             "apis": gin.H{
                 "stats": []string{
                     "GET /panel/api/enhanced/stats/traffic/summary/:period",
@@ -1687,6 +1696,26 @@ func setupRoutes() *gin.Engine {
                 "monitor": []string{
                     "GET /panel/api/enhanced/monitor/health/system",
                     "GET /panel/api/enhanced/monitor/performance/metrics",
+                },
+                "simulate": []string{
+                    "POST /panel/api/enhanced/tools/simulate/outbounds/list",
+                    "POST /panel/api/enhanced/tools/simulate/outbounds/add",
+                    "POST /panel/api/enhanced/tools/simulate/outbounds/update",
+                    "POST /panel/api/enhanced/tools/simulate/outbounds/delete",
+                    "POST /panel/api/enhanced/tools/simulate/routing/get",
+                    "POST /panel/api/enhanced/tools/simulate/routing/update",
+                    "POST /panel/api/enhanced/tools/simulate/routing/rule/add",
+                    "POST /panel/api/enhanced/tools/simulate/routing/rule/delete",
+                    "POST /panel/api/enhanced/tools/simulate/routing/rule/update",
+                },
+                "tools": []string{
+                    "GET /panel/api/enhanced/tools/generate-reality-keys",
+                    "POST /panel/api/enhanced/tools/validate-reality-keys",
+                    "GET /panel/api/enhanced/tools/xray-info",
+                    "GET /panel/api/enhanced/tools/find-xray",
+                    "GET /panel/api/enhanced/tools/test-xray/:path",
+                    "POST /panel/api/enhanced/tools/proxy/outbounds/*path",
+                    "POST /panel/api/enhanced/tools/proxy/routing/*path",
                 },
             },
         })
@@ -2129,7 +2158,7 @@ main() {
     trap cleanup EXIT
     
     log_header "=========================================="
-    log_header "    3X-UI 独立增强API服务安装器 v2.0"
+    log_header "    3X-UI 独立增强API服务安装器 v2.2.0"
     log_header "    Standalone Enhanced API Installer"
     log_header "=========================================="
     log_header "    作者: WCOJBK"
@@ -2162,10 +2191,12 @@ main() {
     if [[ "$UPGRADE_MODE" == true ]]; then
         log_success "🎉 3X-UI增强API服务升级完成！"
         echo
-        log_info "🆕 升级内容："
-        echo "   ✅ 新增服务器端Reality密钥生成API"
-        echo "   ✅ 优化入站创建格式兼容性" 
-        echo "   ✅ 增强错误处理和日志记录"
+        log_info "🆕 升级内容 (v2.2.0)："
+        echo "   ✅ 新增出站和路由管理模拟端点 (9个新API)"
+        echo "   ✅ 完整的前端操作模拟功能"
+        echo "   ✅ 解决原生面板404错误兼容性问题"
+        echo "   ✅ 支持直接操作Xray配置文件"
+        echo "   ✅ 增强Python客户端自动检测功能"
         echo "   ✅ 保持原有端口和配置不变"
     else
         log_success "🎉 3X-UI增强API服务安装完成！"
