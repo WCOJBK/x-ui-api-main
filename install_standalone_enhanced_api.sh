@@ -302,11 +302,15 @@ package main
 
 import (
     "encoding/base64"
+    "bytes"
     "fmt"
+    "io"
     "log"
     "net/url"
     "os"
     "os/exec"
+    "net/http"
+    "net/http/cookiejar"
     "strconv"
     "strings"
     "time"
@@ -317,6 +321,50 @@ import (
     "gorm.io/gorm"
     "golang.org/x/crypto/curve25519"
 )
+// 简易反向代理：将增强API的 /panel/api/enhanced/tools/proxy/** 转发到原生面板（自带basePath）
+func proxyPanelAPI(c *gin.Context) {
+    targetBase := strings.TrimRight(config.XUIBaseURL, "/")
+    // 原始子路径，比如 /proxy/outbounds/outbound/add → 取其后段
+    p := c.Param("path") // 形如 /outbounds/outbound/add 或 /routing/routing/get
+    panelURL := targetBase + "/panel/api" + p
+
+    // 复制请求体
+    var buf bytes.Buffer
+    if c.Request.Body != nil {
+        io.Copy(&buf, c.Request.Body)
+    }
+
+    // 构建请求
+    req, err := http.NewRequest("POST", panelURL, bytes.NewReader(buf.Bytes()))
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    req.Header.Set("Content-Type", c.GetHeader("Content-Type"))
+
+    // 透传 Cookie（假设增强API与面板同机，同一会话可能无效；如需，支持 PANEL_USER/PANEL_PASS 登录）
+    client := &http.Client{}
+    // 可选：若提供面板账号，则先登录
+    if config.PanelUser != "" && config.PanelPass != "" {
+        jar, _ := cookiejar.New(nil)
+        client.Jar = jar
+        loginReq, _ := http.NewRequest("POST", targetBase+"/login", strings.NewReader("username="+url.QueryEscape(config.PanelUser)+"&password="+url.QueryEscape(config.PanelPass)))
+        loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+        if resp, err := client.Do(loginReq); err == nil {
+            resp.Body.Close()
+        }
+    }
+
+    resp, err := client.Do(req)
+    if err != nil {
+        c.JSON(502, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    defer resp.Body.Close()
+    body, _ := io.ReadAll(resp.Body)
+    c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+}
+
 
 // 兼容多种Base64编码（标准/RAW/URL），并自动补齐padding
 func decodeBase64Flexible(s string) ([]byte, error) {
@@ -362,6 +410,8 @@ type Config struct {
     Port       int
     XUIBaseURL string
     DBPath     string
+    PanelUser  string
+    PanelPass  string
 }
 
 // 全局变量
@@ -1173,6 +1223,9 @@ func setupRoutes() *gin.Engine {
             tools.GET("/xray-info", getXrayInfo)
             tools.GET("/find-xray", findXrayExecutable)
             tools.GET("/test-xray/:path", testXrayPath)
+            // 代理转发原生面板的出站与路由接口，简化客户端调用
+            tools.POST("/proxy/outbounds/*path", proxyPanelAPI)
+            tools.POST("/proxy/routing/*path", proxyPanelAPI)
         }
     }
     
@@ -1185,6 +1238,8 @@ func main() {
         Port:       8080,
         XUIBaseURL: "http://localhost:2053",
         DBPath:     "/usr/local/x-ui/x-ui.db",
+        PanelUser:  os.Getenv("PANEL_USER"),
+        PanelPass:  os.Getenv("PANEL_PASS"),
     }
     
     // 从环境变量读取配置

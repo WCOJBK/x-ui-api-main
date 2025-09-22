@@ -1,5 +1,31 @@
 import requests
 from typing import Any, Dict
+import base64
+
+def _b64_to_bytes(b64: str):
+	"""尝试将标准/URL Base64(可无填充)解码为原始字节。失败则返回 None。"""
+	b64 = (b64 or "").strip()
+	if not b64:
+		return None
+	# 尝试标准 Base64
+	try:
+		pad = '=' * ((4 - len(b64) % 4) % 4)
+		return base64.b64decode(b64 + pad)
+	except Exception:
+		pass
+	# 尝试 URL-safe Base64
+	try:
+		pad = '=' * ((4 - len(b64) % 4) % 4)
+		return base64.urlsafe_b64decode(b64 + pad)
+	except Exception:
+		return None
+
+def _to_base64url_no_padding(b64: str) -> str:
+	"""把任意变体Base64规范成URL-safe且无填充。若失败则原样返回。"""
+	raw = _b64_to_bytes(b64)
+	if raw is None:
+		return b64
+	return base64.urlsafe_b64encode(raw).decode('ascii').rstrip('=')
 
 class XUIClient:
 	def __init__(self, base_url: str) -> None:
@@ -24,11 +50,114 @@ class XUIClient:
 		resp = self.session.post(f"{self.base_url}/panel/api/inbounds/update/{inbound_id}", json=updated_data)
 		return resp.json() if resp.ok else {"success": False, "msg": resp.text}
 
+	# ---------------- 出站管理 ----------------
+	def list_outbounds(self) -> Any:
+		resp = self.session.post(f"{self.base_url}/panel/api/outbounds/outbound/list")
+		try:
+			return resp.json()
+		except Exception:
+			return {"success": False, "msg": resp.text, "status": resp.status_code}
+
+	def add_outbound(self, outbound: Dict[str, Any]) -> Dict[str, Any]:
+		resp = self.session.post(f"{self.base_url}/panel/api/outbounds/outbound/add", json=outbound)
+		try:
+			return resp.json()
+		except Exception:
+			return {"success": False, "msg": resp.text, "status": resp.status_code}
+
+	def update_outbound(self, tag: str, outbound: Dict[str, Any]) -> Dict[str, Any]:
+		resp = self.session.post(f"{self.base_url}/panel/api/outbounds/outbound/update/{tag}", json=outbound)
+		try:
+			return resp.json()
+		except Exception:
+			return {"success": False, "msg": resp.text, "status": resp.status_code}
+
+	def delete_outbound(self, tag: str) -> Dict[str, Any]:
+		resp = self.session.post(f"{self.base_url}/panel/api/outbounds/outbound/del/{tag}")
+		try:
+			return resp.json()
+		except Exception:
+			return {"success": False, "msg": resp.text, "status": resp.status_code}
+
+	# ---------------- 路由管理 ----------------
+	def get_routing(self) -> Any:
+		paths = [
+			"/panel/api/routing/routing/get",
+			"/panel/api/routing/get",
+		]
+		for p in paths:
+			resp = self.session.post(f"{self.base_url}{p}")
+			if resp.ok:
+				try:
+					return resp.json()
+				except Exception:
+					return {"success": False, "msg": resp.text, "status": resp.status_code}
+		return {"success": False, "msg": "All endpoints tried failed"}
+
+	def update_routing(self, routing: Dict[str, Any]) -> Dict[str, Any]:
+		paths = [
+			"/panel/api/routing/routing/update",
+			"/panel/api/routing/update",
+		]
+		for p in paths:
+			resp = self.session.post(f"{self.base_url}{p}", json=routing)
+			if resp.ok:
+				try:
+					return resp.json()
+				except Exception:
+					return {"success": False, "msg": resp.text, "status": resp.status_code}
+		return {"success": False, "msg": "All endpoints tried failed"}
+
+	def add_route_rule(self, rule: Dict[str, Any]) -> Dict[str, Any]:
+		paths = [
+			"/panel/api/routing/routing/rule/add",
+			"/panel/api/routing/rule/add",
+		]
+		for p in paths:
+			resp = self.session.post(f"{self.base_url}{p}", json=rule)
+			if resp.ok:
+				try:
+					return resp.json()
+				except Exception:
+					return {"success": False, "msg": resp.text, "status": resp.status_code}
+		return {"success": False, "msg": "All endpoints tried failed"}
+
+	def delete_route_rule(self, index: int) -> Dict[str, Any]:
+		paths = [
+			"/panel/api/routing/routing/rule/del",
+			"/panel/api/routing/rule/del",
+		]
+		for p in paths:
+			resp = self.session.post(f"{self.base_url}{p}", json=index)
+			if resp.ok:
+				try:
+					return resp.json()
+				except Exception:
+					return {"success": False, "msg": resp.text, "status": resp.status_code}
+		return {"success": False, "msg": "All endpoints tried failed"}
+
+	def update_route_rule(self, index: int, rule: Dict[str, Any]) -> Dict[str, Any]:
+		payload = {"index": index, "rule": rule}
+		paths = [
+			"/panel/api/routing/routing/rule/update",
+			"/panel/api/routing/rule/update",
+		]
+		for p in paths:
+			resp = self.session.post(f"{self.base_url}{p}", json=payload)
+			if resp.ok:
+				try:
+					return resp.json()
+				except Exception:
+					return {"success": False, "msg": resp.text, "status": resp.status_code}
+		return {"success": False, "msg": "All endpoints tried failed"}
+
 	def add_vless_reality_template(self, port: int, uuid: str, sni: str, private_key: str, public_key: str, short_id: str, email: str = "reality@example.com", total_gb: int = 0, expiry_time: int = 0, limit_ip: int = 0) -> Dict[str, Any]:
 		"""使用模板方式创建VLESS Reality入站（基于成功的端口20297配置）"""
 		import json
 		
 		# 完全复制手动创建成功的配置模板
+		# 统一将私钥转为 URL-safe Base64(无填充)
+		private_key_url = _to_base64url_no_padding(private_key)
 		template_config = {
 			"remark": f"vless-reality-{port}",
 			"enable": True,
@@ -62,7 +191,7 @@ class XUIClient:
 					"maxClient": "",
 					"maxTimediff": 0,
 					"minClient": "",
-					"privateKey": private_key,
+					"privateKey": private_key_url,
 					# 注意：3X-UI 前端读取的是 realitySettings.settings.publicKey
 					"settings": {
 						"publicKey": public_key,
@@ -115,7 +244,6 @@ class XUIClient:
 			"fallbacks": []  # 添加缺失的fallbacks字段
 		}
 		# 将hex私钥转换为base64格式（与手动创建一致）
-		import base64
 		try:
 			# 如果是hex格式，转换为base64
 			if len(private_key) == 64 and all(c in '0123456789abcdefABCDEF' for c in private_key):
@@ -126,6 +254,9 @@ class XUIClient:
 				private_key_b64 = private_key
 		except:
 			private_key_b64 = private_key
+
+		# 统一将私钥转为 URL-safe Base64(无填充)
+		private_key_url = _to_base64url_no_padding(private_key_b64)
 		
 		stream = {
 			"network": "tcp",
@@ -138,7 +269,7 @@ class XUIClient:
 				"maxTimediff": 0, 
 				"minClient": "",
 				"serverNames": [sni, f"www.{sni}"],
-				"privateKey": private_key_b64,  # 使用base64格式
+				"privateKey": private_key_url,  # 使用URL-safe无填充格式
 				# 注意：3X-UI 前端读取的是 realitySettings.settings.publicKey
 				"settings": {
 					"publicKey": public_key,

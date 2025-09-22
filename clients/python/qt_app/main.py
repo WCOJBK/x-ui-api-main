@@ -18,11 +18,31 @@ except Exception:
 
 HEX = "0123456789abcdef"
 
+def _b64_to_bytes_any(b64: str) -> bytes:
+    import base64
+    s = (b64 or "").strip()
+    if not s:
+        raise ValueError("empty base64 input")
+    pad = '=' * ((4 - len(s) % 4) % 4)
+    # try standard
+    try:
+        return base64.b64decode(s + pad)
+    except Exception:
+        pass
+    # try urlsafe
+    try:
+        return base64.urlsafe_b64decode(s + pad)
+    except Exception as e:
+        raise e
+
 def gen_uuid() -> str:
 	return str(uuid.uuid4())
 
 def gen_short() -> str:
 	return "".join(secrets.choice(HEX) for _ in range(16))
+
+def gen_tag(prefix: str = "proxy-") -> str:
+	return prefix + "".join(secrets.choice(HEX) for _ in range(8))
 
 class LoginPane(QWidget):
 	def __init__(self) -> None:
@@ -118,6 +138,66 @@ class MonitorPane(QWidget):
 		layout.addWidget(self.refresh)
 		layout.addWidget(self.out)
 
+class OutboundPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.out = QTextEdit(); self.out.setReadOnly(True)
+		self.tag = QLineEdit("")
+		self.protocol = QLineEdit("")
+		self.body = QTextEdit("")
+		self.body.setPlaceholderText('{"settings": {...}} 或完整出站JSON')
+		self.refresh_btn = QPushButton("刷新出站")
+		self.add_btn = QPushButton("新增出站")
+		self.update_btn = QPushButton("更新出站")
+		self.delete_btn = QPushButton("删除出站")
+		self.quick_line = QLineEdit("")
+		self.quick_line.setPlaceholderText("host:port:user:pass 或 host:port:user-ip-1.2.3.4:pass")
+		self.quick_btn = QPushButton("从串解析并填充")
+		form = QFormLayout()
+		form.addRow("Tag", self.tag)
+		form.addRow("Protocol", self.protocol)
+		form.addRow("出站JSON", self.body)
+		form.addRow("快速串", self.quick_line)
+		form.addRow(" ", self.quick_btn)
+		btns = QHBoxLayout()
+		btns.addWidget(self.refresh_btn)
+		btns.addWidget(self.add_btn)
+		btns.addWidget(self.update_btn)
+		btns.addWidget(self.delete_btn)
+		layout = QVBoxLayout(self)
+		layout.addWidget(self.out)
+		layout.addLayout(form)
+		layout.addLayout(btns)
+
+class RoutingPane(QWidget):
+	def __init__(self) -> None:
+		super().__init__()
+		self.out = QTextEdit(); self.out.setReadOnly(True)
+		self.routing = QTextEdit("")
+		self.routing.setPlaceholderText('完整路由JSON，如 {"domainStrategy":"AsIs","rules":[...]}')
+		self.rule = QTextEdit("")
+		self.rule.setPlaceholderText('单条规则JSON，如 {"type":"field","outboundTag":"DIRECT"}')
+		self.rule_index = QSpinBox(); self.rule_index.setRange(0, 100000)
+		self.get_btn = QPushButton("获取路由")
+		self.update_btn = QPushButton("更新路由")
+		self.add_rule_btn = QPushButton("新增规则")
+		self.del_rule_btn = QPushButton("删除规则")
+		self.upd_rule_btn = QPushButton("更新规则")
+		form = QFormLayout()
+		form.addRow("当前路由", self.out)
+		form.addRow("路由JSON", self.routing)
+		form.addRow("规则JSON", self.rule)
+		form.addRow("规则Index", self.rule_index)
+		btns = QHBoxLayout()
+		btns.addWidget(self.get_btn)
+		btns.addWidget(self.update_btn)
+		btns.addWidget(self.add_rule_btn)
+		btns.addWidget(self.del_rule_btn)
+		btns.addWidget(self.upd_rule_btn)
+		layout = QVBoxLayout(self)
+		layout.addLayout(form)
+		layout.addLayout(btns)
+
 class LogPane(QWidget):
 	def __init__(self) -> None:
 		super().__init__()
@@ -135,9 +215,13 @@ class MainWindow(QWidget):
 		self.login_pane = LoginPane()
 		self.inbound_pane = InboundPane()
 		self.monitor_pane = MonitorPane()
+		self.outbound_pane = OutboundPane()
+		self.routing_pane = RoutingPane()
 		self.log_pane = LogPane()
 		self.tabs.addTab(self.login_pane, "连接")
 		self.tabs.addTab(self.inbound_pane, "入站管理")
+		self.tabs.addTab(self.outbound_pane, "出站管理")
+		self.tabs.addTab(self.routing_pane, "路由管理")
 		self.tabs.addTab(self.monitor_pane, "监控")
 		self.tabs.addTab(self.log_pane, "日志")
 		layout = QVBoxLayout(self)
@@ -159,6 +243,18 @@ class MainWindow(QWidget):
 		self.inbound_pane.verify_btn.clicked.connect(self.verify_latest_inbound)
 		self.monitor_pane.refresh.clicked.connect(self.refresh_monitor)
 		self.log_pane.export_btn.clicked.connect(self.export_logs)
+		# 出站管理 wiring
+		self.outbound_pane.refresh_btn.clicked.connect(self.refresh_outbounds)
+		self.outbound_pane.add_btn.clicked.connect(self.add_outbound)
+		self.outbound_pane.update_btn.clicked.connect(self.update_outbound)
+		self.outbound_pane.delete_btn.clicked.connect(self.delete_outbound)
+		self.outbound_pane.quick_btn.clicked.connect(self.parse_and_fill_outbound)
+		# 路由管理 wiring
+		self.routing_pane.get_btn.clicked.connect(self.refresh_routing)
+		self.routing_pane.update_btn.clicked.connect(self.update_routing)
+		self.routing_pane.add_rule_btn.clicked.connect(self.add_route_rule)
+		self.routing_pane.del_rule_btn.clicked.connect(self.delete_route_rule)
+		self.routing_pane.upd_rule_btn.clicked.connect(self.update_route_rule)
 		# load settings
 		self.load_settings()
 
@@ -360,7 +456,8 @@ class MainWindow(QWidget):
 					
 					if returned_private_key:
 						# 从私钥计算公钥
-						priv_bytes = base64.b64decode(returned_private_key)
+						# 兼容标准/URL安全Base64与无填充
+						priv_bytes = _b64_to_bytes_any(returned_private_key)
 						priv_obj = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
 						pub_obj = priv_obj.public_key()
 						pub_bytes = pub_obj.public_bytes(
@@ -726,6 +823,175 @@ class MainWindow(QWidget):
 		with open(path, "w", encoding="utf-8") as f:
 			f.write(self.log_pane.out.toPlainText())
 		self.log(f"已导出日志到: {path}")
+
+	# ---------------- 出站管理 ----------------
+	def refresh_outbounds(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		resp = self.xui.list_outbounds()
+		self.outbound_pane.out.setPlainText(str(resp))
+		self.log("已刷新出站列表")
+
+	def add_outbound(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		try:
+			import json
+			tag = self.outbound_pane.tag.text().strip()
+			protocol = self.outbound_pane.protocol.text().strip()
+			body_txt = self.outbound_pane.body.toPlainText().strip()
+			payload = {"tag": tag or gen_tag(), "protocol": protocol or "http"}
+			if body_txt:
+				try:
+					body_obj = json.loads(body_txt)
+					if isinstance(body_obj, dict):
+						# 若已是完整出站对象，直接使用
+						if "protocol" in body_obj and "settings" in body_obj:
+							payload = body_obj
+							if not payload.get("tag"):
+								payload["tag"] = tag or gen_tag()
+						else:
+							payload.update(body_obj)
+				except Exception:
+					# 忽略解析失败，使用最小payload
+					pass
+			resp = self.xui.add_outbound(payload)
+			self.log(str(resp))
+		except Exception as e:
+			self.log(f"新增出站失败: {e}")
+
+	def update_outbound(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		try:
+			import json
+			tag = self.outbound_pane.tag.text().strip()
+			protocol = self.outbound_pane.protocol.text().strip()
+			body_txt = self.outbound_pane.body.toPlainText().strip()
+			payload = {"tag": tag or gen_tag(), "protocol": protocol or "http"}
+			if body_txt:
+				try:
+					body_obj = json.loads(body_txt)
+					if isinstance(body_obj, dict):
+						if "protocol" in body_obj and "settings" in body_obj:
+							payload = body_obj
+							if not payload.get("tag"):
+								payload["tag"] = tag or gen_tag()
+						else:
+							payload.update(body_obj)
+				except Exception:
+					pass
+			resp = self.xui.update_outbound(tag or payload.get("tag"), payload)
+			self.log(str(resp))
+		except Exception as e:
+			self.log(f"更新出站失败: {e}")
+
+	def delete_outbound(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		tag = self.outbound_pane.tag.text().strip()
+		resp = self.xui.delete_outbound(tag)
+		self.log(str(resp))
+
+	def parse_and_fill_outbound(self) -> None:
+		"""解析格式 host:port:user:pass 或 host:port:user-ip-1.2.3.4:pass 填充为HTTP出站JSON"""
+		line = self.outbound_pane.quick_line.text().strip()
+		try:
+			parts = line.split(":")
+			if len(parts) != 4:
+				QMessageBox.warning(self, "提示", "格式应为 host:port:user:pass 或 host:port:user-ip-1.2.3.4:pass")
+				return
+			host, port_str, user_part, password = parts
+			# user 可能包含 -ip-xxx
+			user = user_part
+			protocol = "http"
+			port = int(port_str)
+			# 生成标准 Socks 出站
+			import json
+			ob = {
+				"protocol": protocol,
+				"tag": gen_tag("http-"),
+				"settings": {
+					"servers": [
+						{
+							"address": host,
+							"port": port,
+							"users": [ {"user": user, "pass": password} ]
+						}
+					]
+				}
+			}
+			self.outbound_pane.tag.setText(ob["tag"])
+			self.outbound_pane.protocol.setText(protocol)
+			self.outbound_pane.body.setPlainText(json.dumps(ob, ensure_ascii=False, indent=2))
+			self.log("已从快速串生成 HTTP 出站配置")
+		except Exception as e:
+			self.log(f"解析快速串失败: {e}")
+
+	# ---------------- 路由管理 ----------------
+	def refresh_routing(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		resp = self.xui.get_routing()
+		self.routing_pane.out.setPlainText(str(resp))
+		# 尝试把 data 渲染到可编辑框
+		try:
+			import json
+			if isinstance(resp, dict) and resp.get("success"):
+				self.routing_pane.routing.setPlainText(json.dumps(resp.get("obj") or resp.get("data"), ensure_ascii=False, indent=2))
+		except Exception:
+			pass
+		self.log("已获取路由配置")
+
+	def update_routing(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		try:
+			import json
+			routing_obj = json.loads(self.routing_pane.routing.toPlainText() or "{}")
+			resp = self.xui.update_routing(routing_obj)
+			self.log(str(resp))
+		except Exception as e:
+			self.log(f"更新路由失败: {e}")
+
+	def add_route_rule(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		try:
+			import json
+			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
+			resp = self.xui.add_route_rule(rule_obj)
+			self.log(str(resp))
+		except Exception as e:
+			self.log(f"新增规则失败: {e}")
+
+	def delete_route_rule(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		idx = int(self.routing_pane.rule_index.value())
+		resp = self.xui.delete_route_rule(idx)
+		self.log(str(resp))
+
+	def update_route_rule(self) -> None:
+		if not self.xui:
+			QMessageBox.warning(self, "提示", "请先登录")
+			return
+		try:
+			import json
+			idx = int(self.routing_pane.rule_index.value())
+			rule_obj = json.loads(self.routing_pane.rule.toPlainText() or "{}")
+			resp = self.xui.update_route_rule(idx, rule_obj)
+			self.log(str(resp))
+		except Exception as e:
+			self.log(f"更新规则失败: {e}")
 
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
