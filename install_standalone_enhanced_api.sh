@@ -302,6 +302,7 @@ package main
 
 import (
     "encoding/base64"
+    "encoding/json"
     "bytes"
     "fmt"
     "io"
@@ -366,6 +367,356 @@ func proxyPanelAPI(c *gin.Context) {
 }
 
 
+// ====== 前端模板模拟：帮助方法 ======
+func buildPanelBase() string {
+    base := strings.TrimRight(config.XUIBaseURL, "/")
+    bp := strings.Trim(config.BasePath, "/")
+    if bp == "" {
+        return base
+    }
+    return base + "/" + bp
+}
+
+func newPanelClient() *http.Client {
+    jar, _ := cookiejar.New(nil)
+    return &http.Client{Jar: jar, Timeout: 30 * time.Second}
+}
+
+func panelLoginIfNeeded(client *http.Client) {
+    if config.PanelUser == "" || config.PanelPass == "" {
+        return
+    }
+    loginURL := buildPanelBase() + "/login"
+    payload := "username=" + url.QueryEscape(config.PanelUser) + "&password=" + url.QueryEscape(config.PanelPass)
+    req, _ := http.NewRequest("POST", loginURL, strings.NewReader(payload))
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    req.Header.Set("X-Requested-With", "XMLHttpRequest")
+    if resp, err := client.Do(req); err == nil {
+        io.Copy(io.Discard, resp.Body)
+        resp.Body.Close()
+    }
+}
+
+func fetchXrayTemplateFromPanel() (map[string]any, error) {
+    client := newPanelClient()
+    panelLoginIfNeeded(client)
+
+    url := buildPanelBase() + "/panel/xray/"
+    req, _ := http.NewRequest("POST", url, nil)
+    req.Header.Set("X-Requested-With", "XMLHttpRequest")
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("request failed: %v", err)
+    }
+    defer resp.Body.Close()
+    body, _ := io.ReadAll(resp.Body)
+    if resp.StatusCode != 200 {
+        return nil, fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+    }
+    var data map[string]any
+    if err := json.Unmarshal(body, &data); err != nil {
+        return nil, fmt.Errorf("invalid json: %v", err)
+    }
+    obj, _ := data["obj"].(map[string]any)
+    if obj == nil {
+        return nil, fmt.Errorf("missing obj in response")
+    }
+    xraw, ok := obj["xraySetting"]
+    if !ok {
+        return nil, fmt.Errorf("missing xraySetting")
+    }
+    // xraySetting 可能是字符串或对象
+    switch v := xraw.(type) {
+    case string:
+        var tpl map[string]any
+        if err := json.Unmarshal([]byte(v), &tpl); err != nil {
+            return nil, fmt.Errorf("xraySetting decode failed: %v", err)
+        }
+        return tpl, nil
+    case map[string]any:
+        return v, nil
+    default:
+        return nil, fmt.Errorf("unexpected xraySetting type")
+    }
+}
+
+func submitXrayTemplateToPanel(tpl map[string]any) (map[string]any, error) {
+    client := newPanelClient()
+    panelLoginIfNeeded(client)
+    url := buildPanelBase() + "/panel/xray/update"
+    b, err := json.Marshal(tpl)
+    if err != nil {
+        return nil, err
+    }
+    form := url2Values(map[string]string{"xraySetting": string(b)})
+    req, _ := http.NewRequest("POST", url, strings.NewReader(form))
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    req.Header.Set("X-Requested-With", "XMLHttpRequest")
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("request failed: %v", err)
+    }
+    defer resp.Body.Close()
+    body, _ := io.ReadAll(resp.Body)
+    var data map[string]any
+    if err := json.Unmarshal(body, &data); err != nil {
+        return nil, fmt.Errorf("invalid json: %v", err)
+    }
+    return data, nil
+}
+
+func restartXrayViaPanel() error {
+    client := newPanelClient()
+    panelLoginIfNeeded(client)
+    url := buildPanelBase() + "/panel/server/restartXrayService"
+    req, _ := http.NewRequest("POST", url, nil)
+    req.Header.Set("X-Requested-With", "XMLHttpRequest")
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    // 尝试解析JSON查看success
+    var data map[string]any
+    if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
+        if s, ok := data["success"].(bool); ok && !s {
+            return fmt.Errorf("restart failed: %v", data["msg"])
+        }
+    }
+    return nil
+}
+
+func url2Values(m map[string]string) string {
+    var b strings.Builder
+    first := true
+    for k, v := range m {
+        if !first {
+            b.WriteByte('&')
+        }
+        first = false
+        b.WriteString(url.QueryEscape(k))
+        b.WriteByte('=')
+        b.WriteString(url.QueryEscape(v))
+    }
+    return b.String()
+}
+
+// ====== 兼容端点实现：出站 ======
+func compatListOutbounds(c *gin.Context) {
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    out, _ := tpl["outbounds"].([]any)
+    if out == nil {
+        out = []any{}
+    }
+    c.JSON(200, gin.H{"success": true, "outbounds": out})
+}
+
+func compatAddOutbound(c *gin.Context) {
+    var payload map[string]any
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(400, gin.H{"success": false, "msg": "invalid json", "error": err.Error()})
+        return
+    }
+    autoRestart := true
+    if v, ok := payload["autoRestart"].(bool); ok {
+        autoRestart = v
+    }
+    var outbound map[string]any
+    if ob, ok := payload["outbound"].(map[string]any); ok {
+        outbound = ob
+    } else {
+        outbound = payload
+    }
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    arr, _ := tpl["outbounds"].([]any)
+    if arr == nil {
+        arr = []any{}
+    }
+    arr = append(arr, outbound)
+    tpl["outbounds"] = arr
+    if _, err := submitXrayTemplateToPanel(tpl); err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    if autoRestart {
+        if err := restartXrayViaPanel(); err != nil {
+            c.JSON(500, gin.H{"success": false, "msg": "saved but restart failed", "error": err.Error()})
+            return
+        }
+    }
+    c.JSON(200, gin.H{"success": true})
+}
+
+func compatUpdateOutbound(c *gin.Context) {
+    var payload map[string]any
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(400, gin.H{"success": false, "msg": "invalid json", "error": err.Error()})
+        return
+    }
+    tag, _ := payload["tag"].(string)
+    autoRestart := true
+    if v, ok := payload["autoRestart"].(bool); ok {
+        autoRestart = v
+    }
+    var outbound map[string]any
+    if ob, ok := payload["outbound"].(map[string]any); ok {
+        outbound = ob
+    } else {
+        outbound = payload
+    }
+    if t, ok := outbound["tag"].(string); ok && t != "" {
+        tag = t
+    }
+    if tag == "" {
+        c.JSON(400, gin.H{"success": false, "msg": "missing tag"})
+        return
+    }
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    arr, _ := tpl["outbounds"].([]any)
+    if arr == nil {
+        c.JSON(404, gin.H{"success": false, "msg": "no outbounds"})
+        return
+    }
+    found := false
+    for i, v := range arr {
+        if m, ok := v.(map[string]any); ok {
+            if m["tag"] == tag {
+                arr[i] = outbound
+                found = true
+                break
+            }
+        }
+    }
+    if !found {
+        c.JSON(404, gin.H{"success": false, "msg": "outbound tag not found"})
+        return
+    }
+    tpl["outbounds"] = arr
+    if _, err := submitXrayTemplateToPanel(tpl); err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    if autoRestart {
+        if err := restartXrayViaPanel(); err != nil {
+            c.JSON(500, gin.H{"success": false, "msg": "saved but restart failed", "error": err.Error()})
+            return
+        }
+    }
+    c.JSON(200, gin.H{"success": true})
+}
+
+func compatDeleteOutbound(c *gin.Context) {
+    var payload struct{ Tag string `json:"tag"`; AutoRestart *bool `json:"autoRestart"` }
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(400, gin.H{"success": false, "msg": "invalid json", "error": err.Error()})
+        return
+    }
+    if payload.Tag == "" {
+        c.JSON(400, gin.H{"success": false, "msg": "missing tag"})
+        return
+    }
+    autoRestart := true
+    if payload.AutoRestart != nil {
+        autoRestart = *payload.AutoRestart
+    }
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    arr, _ := tpl["outbounds"].([]any)
+    if arr == nil {
+        c.JSON(404, gin.H{"success": false, "msg": "no outbounds"})
+        return
+    }
+    newArr := make([]any, 0, len(arr))
+    removed := false
+    for _, v := range arr {
+        if m, ok := v.(map[string]any); ok {
+            if m["tag"] == payload.Tag {
+                removed = true
+                continue
+            }
+        }
+        newArr = append(newArr, v)
+    }
+    if !removed {
+        c.JSON(404, gin.H{"success": false, "msg": "outbound tag not found"})
+        return
+    }
+    tpl["outbounds"] = newArr
+    if _, err := submitXrayTemplateToPanel(tpl); err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    if autoRestart {
+        if err := restartXrayViaPanel(); err != nil {
+            c.JSON(500, gin.H{"success": false, "msg": "saved but restart failed", "error": err.Error()})
+            return
+        }
+    }
+    c.JSON(200, gin.H{"success": true})
+}
+
+// ====== 兼容端点实现：路由 ======
+func compatGetRouting(c *gin.Context) {
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    routing, _ := tpl["routing"].(map[string]any)
+    if routing == nil {
+        routing = map[string]any{}
+    }
+    c.JSON(200, gin.H{"success": true, "routing": routing})
+}
+
+func compatUpdateRouting(c *gin.Context) {
+    var payload struct{ Routing map[string]any `json:"routing"`; AutoRestart *bool `json:"autoRestart"` }
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(400, gin.H{"success": false, "msg": "invalid json", "error": err.Error()})
+        return
+    }
+    if payload.Routing == nil {
+        c.JSON(400, gin.H{"success": false, "msg": "missing routing"})
+        return
+    }
+    autoRestart := true
+    if payload.AutoRestart != nil {
+        autoRestart = *payload.AutoRestart
+    }
+    tpl, err := fetchXrayTemplateFromPanel()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    tpl["routing"] = payload.Routing
+    if _, err := submitXrayTemplateToPanel(tpl); err != nil {
+        c.JSON(500, gin.H{"success": false, "msg": err.Error()})
+        return
+    }
+    if autoRestart {
+        if err := restartXrayViaPanel(); err != nil {
+            c.JSON(500, gin.H{"success": false, "msg": "saved but restart failed", "error": err.Error()})
+            return
+        }
+    }
+    c.JSON(200, gin.H{"success": true})
+}
+
 // 兼容多种Base64编码（标准/RAW/URL），并自动补齐padding
 func decodeBase64Flexible(s string) ([]byte, error) {
     s = strings.TrimSpace(s)
@@ -409,6 +760,7 @@ func normalizeBase64Std(s string) (string, error) {
 type Config struct {
     Port       int
     XUIBaseURL string
+    BasePath   string
     DBPath     string
     PanelUser  string
     PanelPass  string
@@ -1159,6 +1511,14 @@ func setupRoutes() *gin.Engine {
                     "GET /panel/api/enhanced/monitor/health/system",
                     "GET /panel/api/enhanced/monitor/performance/metrics",
                 },
+                "compat": []string{
+                    "GET  /panel/api/enhanced/compat/outbound/list",
+                    "POST /panel/api/enhanced/compat/outbound/add",
+                    "POST /panel/api/enhanced/compat/outbound/update",
+                    "POST /panel/api/enhanced/compat/outbound/delete",
+                    "GET  /panel/api/enhanced/compat/routing/get",
+                    "POST /panel/api/enhanced/compat/routing/update",
+                },
             },
         })
     })
@@ -1227,6 +1587,18 @@ func setupRoutes() *gin.Engine {
             tools.POST("/proxy/outbounds/*path", proxyPanelAPI)
             tools.POST("/proxy/routing/*path", proxyPanelAPI)
         }
+
+        // 兼容端点：模拟前端“整份模板”读改写（不要求升级原生面板）
+        compat := api.Group("/compat")
+        {
+            compat.GET("/outbound/list", compatListOutbounds)
+            compat.POST("/outbound/add", compatAddOutbound)
+            compat.POST("/outbound/update", compatUpdateOutbound)
+            compat.POST("/outbound/delete", compatDeleteOutbound)
+
+            compat.GET("/routing/get", compatGetRouting)
+            compat.POST("/routing/update", compatUpdateRouting)
+        }
     }
     
     return r
@@ -1237,6 +1609,7 @@ func main() {
     config = Config{
         Port:       8080,
         XUIBaseURL: "http://localhost:2053",
+        BasePath:   "",
         DBPath:     "/usr/local/x-ui/x-ui.db",
         PanelUser:  os.Getenv("PANEL_USER"),
         PanelPass:  os.Getenv("PANEL_PASS"),
@@ -1251,6 +1624,10 @@ func main() {
     
     if xuiURL := os.Getenv("XUI_BASE_URL"); xuiURL != "" {
         config.XUIBaseURL = xuiURL
+    }
+
+    if bp := os.Getenv("BASE_PATH"); bp != "" {
+        config.BasePath = bp
     }
     
     if dbPath := os.Getenv("DB_PATH"); dbPath != "" {
@@ -1341,6 +1718,7 @@ WorkingDirectory=$API_DIR
 ExecStart=$API_DIR/$SERVICE_NAME
 Environment=API_PORT=$API_PORT
 Environment=XUI_BASE_URL=http://localhost:$XUI_PORT
+Environment=BASE_PATH=
 Environment=DB_PATH=/usr/local/x-ui/x-ui.db
 Restart=on-failure
 RestartSec=5

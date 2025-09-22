@@ -519,6 +519,43 @@ Web 面板通过 Telegram Bot 支持每日流量、面板登录、数据库备�
 - [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://app.getpostman.com/run-collection/5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D5146551-dda3cab3-0e33-485f-96f9-d4262f437ac5%26entityType%3Dcollection%26workspaceId%3Dd64f609f-485a-4951-9b8f-876b3f917124)
 </details>
 
+## 增强API（不升级原生面板）兼容端点：模板模拟出站与路由
+
+为在不升级原生 3X-UI 的前提下完成出站/路由管理，本项目在独立增强 API 中新增了一组“兼容端点”，通过“读取→修改→提交整份 Xray 模板→重启”的方式模拟前端行为。
+
+- 读取模板：`POST {basePath}/panel/xray/`（增强端点内部调用）
+- 提交模板：`POST {basePath}/panel/xray/update`（表单字段 `xraySetting`）
+- 重启生效：`POST {basePath}/panel/server/restartXrayService`
+
+### 兼容端点列表（增强 API）
+
+根路径：`/panel/api/enhanced/compat`
+
+- 出站管理
+  - `GET  /outbound/list`：返回模板中的 `outbounds` 列表
+  - `POST /outbound/add`：请求体为 JSON，字段 `outbound`（对象），保存后可自动重启
+  - `POST /outbound/update`：请求体为 JSON，字段 `tag` 与 `outbound`（对象），按 `tag` 替换
+  - `POST /outbound/delete`：请求体为 JSON，字段 `tag`，按 `tag` 删除
+
+- 路由管理
+  - `GET  /routing/get`：返回模板中的 `routing` 对象
+  - `POST /routing/update`：请求体为 JSON，字段 `routing`（对象），整体替换 `routing`
+
+说明：以上端点内部自动执行“读模板→改模板→提交模板→（可选）重启”。请求体可选字段 `autoRestart`（布尔值，默认 `true`）。
+
+### 环境变量
+
+- `XUI_BASE_URL`：原生面板基础地址（例如 `http://127.0.0.1:2053`）
+- `BASE_PATH`：面板的 `Web Base Path`（不含首尾 `/`，例如 `k2VsoB1Ozqq2sF3`；留空表示根路径）
+- `PANEL_USER` / `PANEL_PASS`：如需在增强 API 内部代为登录原生面板，可设置此账号密码以获取会话
+
+### 设计意图
+
+- 解决部分 3X-UI 版本未开放原生“出站/路由”API 造成的 404 问题
+- 严格复用面板已有的“模板读/写/重启”流程，不改动原生面板安装
+- 保证提交使用表单字段 `xraySetting`，并保持模板其他字段完整，避免误删
+
+
 ## 环境变量
 
 <details>
