@@ -255,6 +255,11 @@ class MainWindow(QWidget):
 		self.routing_pane.add_rule_btn.clicked.connect(self.add_route_rule)
 		self.routing_pane.del_rule_btn.clicked.connect(self.delete_route_rule)
 		self.routing_pane.upd_rule_btn.clicked.connect(self.update_route_rule)
+		
+		# 添加测试增强API连接按钮到登录面板
+		self.test_api_btn = QPushButton("测试增强API连接")
+		self.test_api_btn.clicked.connect(self.test_enhanced_api)
+		self.login_pane.layout().addWidget(self.test_api_btn)
 		# load settings
 		self.load_settings()
 
@@ -290,17 +295,44 @@ class MainWindow(QWidget):
 		enh_base = self.login_pane.enh_url.text().strip()
 		user = self.login_pane.user.text().strip()
 		pwd = self.login_pane.passwd.text().strip()
+		
+		self.log(f"🔄 开始登录...")
+		self.log(f"📡 面板地址: {xui_base}")
+		self.log(f"🔧 增强API: {enh_base}")
+		self.log(f"👤 用户名: {user}")
+		
 		# 传递增强API地址给XUIClient，用于出站和路由管理
 		self.xui = XUIClient(xui_base, enhanced_api_url=enh_base)
 		ok = self.xui.login(user, pwd)
+		
+		# 获取详细的登录调试信息
+		debug_info = self.xui.get_last_http_debug()
+		self.log(f"🔍 登录调试信息:")
+		self.log(f"   状态码: {debug_info.get('status', 'N/A')}")
+		self.log(f"   最终URL: {debug_info.get('finalURL', 'N/A')}")
+		self.log(f"   响应预览: {debug_info.get('textPreview', 'N/A')[:100]}")
+		
 		if ok:
+			# 测试增强API连接
 			self.enh = EnhancedAPIClient(enh_base)
+			try:
+				health_check = self.enh.health()
+				self.log(f"✅ 增强API连接成功: {health_check.get('version', 'N/A')}")
+			except Exception as e:
+				self.log(f"⚠️  增强API连接失败: {e}")
+				self.log(f"   请检查增强API服务是否启动: {enh_base}")
+			
 			self.login_pane.status.setText("登录成功")
-			self.log(f"登录成功: {xui_base}")
+			self.log(f"✅ 登录成功: {xui_base}")
 			self.save_settings()
 		else:
 			self.login_pane.status.setText("登录失败")
-			self.log("登录失败，请检查账号/地址")
+			self.log("❌ 登录失败，请检查账号/地址")
+			self.log("🔧 可能的解决方案:")
+			self.log("   1. 检查面板地址是否包含正确的basePath")
+			self.log("   2. 验证用户名和密码是否正确")
+			self.log("   3. 确认面板服务是否正常运行")
+			self.log("   4. 检查网络连接是否正常")
 
 	def list_inbounds(self) -> None:
 		if not self.xui:
@@ -511,16 +543,95 @@ class MainWindow(QWidget):
 	def refresh_monitor(self) -> None:
 		if not self.enh:
 			QMessageBox.information(self, "提示", "未配置增强API或未登录")
-			self.log("刷新监控失败: 未配置增强API")
+			self.log("❌ 刷新监控失败: 未配置增强API")
+			self.log("🔧 解决方案:")
+			self.log("   1. 确保已成功登录")
+			self.log("   2. 检查增强API地址是否正确")
+			self.log("   3. 确认增强API服务是否启动")
 			return
+		
+		self.log("🔄 正在刷新监控信息...")
 		try:
+			# 测试增强API健康状态
 			health = self.enh.health()
+			self.log(f"✅ 增强API健康检查成功: v{health.get('version', 'N/A')}")
+			
+			# 获取流量统计
 			stats = self.enh.traffic_summary("week")
-			self.monitor_pane.out.setPlainText(f"Health:\n{health}\n\nStats(week):\n{stats}")
-			self.log("已刷新监控信息")
+			self.log("✅ 流量统计获取成功")
+			
+			# 获取系统健康信息
+			sys_health = self.enh.system_health()
+			self.log("✅ 系统健康信息获取成功")
+			
+			# 显示结果
+			result = f"""=== 增强API监控信息 ===
+服务版本: {health.get('version', 'N/A')}
+服务状态: {health.get('status', 'N/A')}
+
+=== 流量统计 (周) ===
+{stats}
+
+=== 系统健康 ===
+{sys_health}"""
+			
+			self.monitor_pane.out.setPlainText(result)
+			self.log("✅ 监控信息刷新完成")
+			
 		except Exception as e:
-			self.monitor_pane.out.setPlainText(f"获取失败: {e}")
-			self.log(f"刷新监控失败: {e}")
+			error_msg = f"获取监控信息失败: {e}"
+			self.monitor_pane.out.setPlainText(error_msg)
+			self.log(f"❌ 刷新监控失败: {e}")
+			self.log("🔧 可能的原因:")
+			self.log("   1. 增强API服务未启动")
+			self.log("   2. 网络连接问题")
+			self.log("   3. 增强API地址配置错误")
+			self.log(f"   当前增强API地址: {self.enh.base_url if self.enh else 'N/A'}")
+
+	def test_enhanced_api(self) -> None:
+		"""测试增强API连接"""
+		enh_base = self.login_pane.enh_url.text().strip()
+		if not enh_base:
+			self.log("❌ 请先输入增强API地址")
+			return
+			
+		self.log(f"🔄 测试增强API连接: {enh_base}")
+		
+		try:
+			# 创建临时客户端测试连接
+			test_client = EnhancedAPIClient(enh_base)
+			
+			# 测试健康检查端点
+			health = test_client.health()
+			self.log(f"✅ 增强API连接成功!")
+			self.log(f"   服务版本: {health.get('version', 'N/A')}")
+			self.log(f"   服务状态: {health.get('status', 'N/A')}")
+			
+			# 测试更多端点
+			try:
+				xray_info = test_client.get_xray_info()
+				if xray_info.get('success'):
+					paths = xray_info.get('data', {}).get('foundPaths', [])
+					self.log(f"✅ Xray环境检测: 找到 {len(paths)} 个可用路径")
+				else:
+					self.log(f"⚠️  Xray环境检测失败: {xray_info.get('msg', 'N/A')}")
+			except Exception as e:
+				self.log(f"⚠️  Xray环境检测异常: {e}")
+			
+			self.log("🎉 增强API连接测试完成 - 服务正常运行!")
+			
+		except Exception as e:
+			self.log(f"❌ 增强API连接失败: {e}")
+			self.log("🔧 可能的解决方案:")
+			self.log("   1. 检查增强API地址是否正确")
+			self.log("   2. 确认增强API服务是否启动")
+			self.log("   3. 检查防火墙设置")
+			self.log("   4. 验证端口是否被占用")
+			
+			# 提供服务启动命令提示
+			self.log("📋 启动增强API服务命令:")
+			self.log("   systemctl start x-ui-enhanced-api")
+			self.log("   systemctl status x-ui-enhanced-api")
 
 	def refresh_uuid_email(self) -> None:
 		"""刷新UUID和Email避免重复冲突"""
