@@ -750,7 +750,7 @@ func generateRealityKeys(c *gin.Context) {
     outputStr := string(output)
     log.Printf("xray x25519输出: %s", outputStr)
     
-    // 解析输出（兼容多种格式，且标准化为固定44长度的base64）
+    // 解析输出（兼容多种格式）
     lines := strings.Split(outputStr, "\n")
     var privateKey, publicKey string
     
@@ -785,15 +785,14 @@ func generateRealityKeys(c *gin.Context) {
     
     // 某些版本仅输出 PrivateKey/Password/Hash32，不包含 PublicKey。
     // 若缺少公钥且私钥存在，尝试本地计算公钥。
+    // 保留原始私钥格式（可能为无填充Base64，长度43），以匹配Xray期望
+    outputPrivate := privateKey
     if privateKey != "" && publicKey == "" {
-        // 将私钥标准化为标准Base64（44长度）
-        if stdPriv, err := normalizeBase64Std(privateKey); err == nil {
-            privateKey = stdPriv
-            if privBytes, err2 := decodeBase64Flexible(privateKey); err2 == nil && len(privBytes) == 32 {
-                if pubBytes, err3 := curve25519.X25519(privBytes, curve25519.Basepoint); err3 == nil && len(pubBytes) == 32 {
-                    publicKey = base64.StdEncoding.EncodeToString(pubBytes)
-                    log.Printf("未从输出解析到公钥，已本地计算公钥: %s", publicKey[:10]+"...")
-                }
+        // 仅用于计算公钥时标准化，不改变对外返回的私钥格式
+        if privBytes, err2 := decodeBase64Flexible(privateKey); err2 == nil && len(privBytes) == 32 {
+            if pubBytes, err3 := curve25519.X25519(privBytes, curve25519.Basepoint); err3 == nil && len(pubBytes) == 32 {
+                publicKey = base64.StdEncoding.EncodeToString(pubBytes)
+                log.Printf("未从输出解析到公钥，已本地计算公钥: %s", publicKey[:10]+"...")
             }
         }
     }
@@ -810,11 +809,14 @@ func generateRealityKeys(c *gin.Context) {
         return
     }
     
-    log.Printf("密钥生成成功: privLen=%d pubLen=%d", len(privateKey), len(publicKey))
+    if outputPrivate == "" {
+        outputPrivate = privateKey
+    }
+    log.Printf("密钥生成成功: privLen=%d pubLen=%d", len(outputPrivate), len(publicKey))
     c.JSON(200, gin.H{
         "success": true,
         "data": gin.H{
-            "privateKey": privateKey,
+            "privateKey": outputPrivate,
             "publicKey": publicKey,
             "method": "xray x25519",
             "command": fmt.Sprintf("%s x25519", xrayCmd),
